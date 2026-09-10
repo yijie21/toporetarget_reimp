@@ -183,13 +183,17 @@ def main():
 
 
 def update_manifest():
-    """List the payloads present so index.html needs no hand-edited script tags."""
-    entries = []
-    for p in sorted(VIEWER.glob("data_*.js")):
-        key = p.stem[len("data_"):]
-        entries.append(dict(key=key, var=f"TR_{key.upper()}", file=p.name,
-                            label=key.replace("_", " ")))
-    write_js(VIEWER / "manifest.js", "TR_MANIFEST", entries)
+    """Refresh viewer/manifest.js so index.html needs no hand-edited script tags.
+
+    Shares one implementation with scripts/make_viewer_manifest.py, which the
+    Pages workflow also calls -- two copies would drift.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_viewer_manifest", Path(__file__).with_name("make_viewer_manifest.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    entries = mod.build(VIEWER)
     print(f"[manifest] {len(entries)} payload(s): {[e['key'] for e in entries]}")
 
 
