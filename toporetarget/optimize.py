@@ -56,7 +56,8 @@ def e_lim(q, lower, upper):
 
 
 def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
-             log_every=5, device="cpu", verbose=False):
+             log_every=5, device="cpu", verbose=False, pen_per_link=40,
+             pen_seed=0, q_init=None, ref=None):
     """Run the optimisation for one frame.  Returns a dict with the full trace."""
     w = dict(DEFAULT_WEIGHTS); w.update(weights or {})
     dt = torch.float32
@@ -95,9 +96,12 @@ def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
         L_im = e_im(L, V_r, V_s) if w["IM"] else V_r.new_zeros(())
         L_bone = e_bone(kp, human, hand.bones, hand.adjacent_bone_pairs) if w["bone"] else V_r.new_zeros(())
         L_reg = (w_reg_term(q, q_ref, d6, d6_ref, t, t_ref)) if w["reg"] else V_r.new_zeros(())
-        # penetration sample points: keypoints + bone midpoints
-        mids = torch.stack([(kp[a] + kp[b]) * 0.5 for a, b in hand.bones])
-        pen_pts = torch.cat([kp, mids], 0)
+        # Penetration acts on samples of the actual link surfaces.  Penalising
+        # only keypoints/bone midpoints leaves the finger geometry free to
+        # intersect the object -- it scored <1 mm while the real link surfaces
+        # were 9 mm inside.  Eq. 12 is defined on surface points, so is this.
+        pen_pts = hand.surface_points(q[None], d6[None], t[None],
+                                      n_per_link=pen_per_link, seed=pen_seed)[0]
         L_pen, phi = e_pen(frame.obj, pen_pts)
         L_pen = L_pen if w["pen"] else V_r.new_zeros(())
         L_lim = e_lim(q, lower, upper) if w["lim"] else V_r.new_zeros(())
@@ -115,9 +119,9 @@ def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
             with torch.no_grad():
                 kp_d = current_kpts()
                 tip_phi = frame.obj.sdf(kp_d[TIP_IDS])
-                allpts = torch.cat([kp_d, torch.stack(
-                    [(kp_d[a] + kp_d[b]) * 0.5 for a, b in hand.bones])], 0)
-                phi_all = frame.obj.sdf(allpts)
+                phi_all = frame.obj.sdf(
+                    hand.surface_points(q[None], d6[None], t[None],
+                                        n_per_link=pen_per_link, seed=pen_seed)[0])
                 rec = dict(
                     iter=it,
                     losses=dict(IM=float(L_im), bone=float(L_bone), reg=float(L_reg),

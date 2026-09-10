@@ -118,6 +118,49 @@ class WujiHand:
         base[:3, :3] = R; base[:3, 3] = t[0]
         return {k: (base @ v[0]) for k, v in mats.items()}
 
+    # ----- hand surface sampling --------------------------------------------- #
+    def link_surface_samples(self, n_per_link=200, seed=0):
+        """{link_name: (n,3) float32} area-weighted samples in each link frame.
+
+        Cached: the same samples are reused across iterations, methods and
+        ablations so that every number is computed on identical geometry.
+        """
+        key = (n_per_link, seed)
+        cache = self.__dict__.setdefault("_surf_cache", {})
+        if key in cache:
+            return cache[key]
+        import trimesh
+        from .paths import WUJI_MESHES
+        out = {}
+        for link in self.link_names:
+            stl = WUJI_MESHES / f"{link}.STL"
+            if not stl.exists():
+                continue
+            m = trimesh.load(stl, process=False)
+            pts, _ = trimesh.sample.sample_surface(m, n_per_link, seed=seed)
+            out[link] = np.asarray(pts, np.float32)
+        cache[key] = out
+        return out
+
+    def surface_points(self, q, d6, t, n_per_link=40, seed=0):
+        """Differentiable world-frame samples of the whole hand surface.
+
+        q:(B,20) d6:(B,6) t:(B,3) -> (B,N,3).  This is what the penetration term
+        and the Eq. 12 metric both act on: penalising only keypoints leaves the
+        link geometry free to intersect the object.
+        """
+        local = self.link_surface_samples(n_per_link, seed)
+        mats = self.fk_local(q)
+        R = rot6d_to_matrix(d6)
+        chunks = []
+        for link, pts in local.items():
+            T = mats[link]                                     # (B,4,4)
+            p = torch.as_tensor(pts, dtype=self.dtype, device=self.device)
+            world = torch.einsum("bij,nj->bni", T[:, :3, :3], p) + T[:, None, :3, 3]
+            chunks.append(world)
+        allp = torch.cat(chunks, dim=1)                        # (B,N,3)
+        return torch.einsum("bij,bnj->bni", R, allp) + t[:, None, :]
+
     # ----- initialisation ---------------------------------------------------- #
     def procrustes_init(self, human_kpts, q0=None):
         """Place the base by best-fit aligning zero/mid-pose robot keypoints to the

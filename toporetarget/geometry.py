@@ -61,6 +61,17 @@ class Sphere:
         pts = self.center + self.radius * v
         return pts.astype(np.float32), v.astype(np.float32)
 
+    # ---- exact (non-differentiable) queries used by evaluation --------------- #
+    def exact_signed_distance(self, pts):
+        v = np.asarray(pts, np.float64) - self.center
+        return np.linalg.norm(v, axis=-1) - self.radius
+
+    def nearest_surface(self, pts):
+        v = np.asarray(pts, np.float64) - self.center
+        n = np.linalg.norm(v, axis=-1, keepdims=True)
+        n = np.where(n < EPS, 1.0, n)
+        return self.center + self.radius * v / n
+
     def trimesh(self):
         import trimesh
         m = trimesh.creation.icosphere(subdivisions=3, radius=self.radius)
@@ -108,6 +119,30 @@ class Cylinder:
                 nrm.append(np.array([0, 0, np.sign(z)]))
         return np.asarray(pts, np.float32), np.asarray(nrm, np.float32)
 
+    # ---- exact (non-differentiable) queries used by evaluation --------------- #
+    def exact_signed_distance(self, pts):
+        q = np.asarray(pts, np.float64) - self.center
+        d_rad = np.hypot(q[..., 0], q[..., 1]) - self.radius
+        d_z = np.abs(q[..., 2]) - self.hz
+        outside = np.hypot(np.clip(d_rad, 0, None), np.clip(d_z, 0, None))
+        inside = np.clip(np.maximum(d_rad, d_z), None, 0)
+        return outside + inside
+
+    def nearest_surface(self, pts):
+        q = np.asarray(pts, np.float64) - self.center
+        rho = np.hypot(q[..., 0], q[..., 1])
+        safe = np.where(rho < EPS, 1.0, rho)
+        ux, uy = q[..., 0] / safe, q[..., 1] / safe
+        # candidate on the lateral wall, and on the nearer cap
+        wall = np.stack([self.radius * ux, self.radius * uy,
+                         np.clip(q[..., 2], -self.hz, self.hz)], -1)
+        r_cap = np.minimum(rho, self.radius)
+        cap = np.stack([r_cap * ux, r_cap * uy,
+                        np.where(q[..., 2] >= 0, self.hz, -self.hz)], -1)
+        pick_wall = (np.linalg.norm(q - wall, axis=-1)
+                     <= np.linalg.norm(q - cap, axis=-1))[..., None]
+        return self.center + np.where(pick_wall, wall, cap)
+
     def trimesh(self):
         import trimesh
         m = trimesh.creation.cylinder(radius=self.radius, height=2 * self.hz, sections=48)
@@ -127,18 +162,34 @@ class MeshObject:
         self._verts = np.asarray(vertices, np.float32)
         self._faces = np.asarray(faces, np.int32)
 
+    # Dense surface point cloud + normals, built once, used as a fast nearest-
+    # neighbour surrogate.  trimesh's exact query needs `contains()` (ray casting)
+    # which is far too slow to call on ~1k hand-surface points every iteration.
+    _CLOUD_N = 40000
+
+    def _cloud(self):
+        if getattr(self, "_kdt", None) is None:
+            import trimesh
+            from scipy.spatial import cKDTree
+            pts, fid = trimesh.sample.sample_surface(self.mesh, self._CLOUD_N, seed=0)
+            self._cloud_pts = np.asarray(pts, np.float64)
+            self._cloud_nrm = np.asarray(self.mesh.face_normals[fid], np.float64)
+            self._kdt = cKDTree(self._cloud_pts)
+        return self._kdt, self._cloud_pts, self._cloud_nrm
+
     def sdf(self, p):
-        # nearest point + sign from trimesh (no grad); build a differentiable
-        # signed-distance surrogate phi = dot(p - nearest, outward_normal).
+        """Differentiable signed-distance *surrogate*, >0 outside.
+
+        phi(p) = dot(p - nearest_surface_pt, outward_normal), with the nearest
+        point and its normal detached.  Exact on the surface, correct in sign and
+        direction nearby, and linear in `p` so gradients flow.  Evaluation never
+        uses this -- see `metrics.ExactSDF`.
+        """
+        kdt, cloud, nrm = self._cloud()
         pd = p.detach().cpu().numpy().reshape(-1, 3).astype(np.float64)
-        closest, dist, tri_id = self.mesh.nearest.on_surface(pd)
-        normals = self.mesh.face_normals[tri_id]
-        inside = self.mesh.contains(pd)
-        sign = np.where(inside, -1.0, 1.0)
-        closest_t = torch.as_tensor(closest, dtype=p.dtype, device=p.device).view_as(p)
-        n_t = torch.as_tensor(normals * sign[:, None], dtype=p.dtype,
-                              device=p.device).view_as(p)
-        # phi is linear in p (closest & normal treated as constants) -> grad flows.
+        _, idx = kdt.query(pd, k=1, workers=-1)
+        closest_t = torch.as_tensor(cloud[idx], dtype=p.dtype, device=p.device).view_as(p)
+        n_t = torch.as_tensor(nrm[idx], dtype=p.dtype, device=p.device).view_as(p)
         return ((p - closest_t) * n_t).sum(-1)
 
     def sample_surface(self, n, seed=0):
