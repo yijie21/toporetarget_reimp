@@ -1,0 +1,20 @@
+# Mink (MuJoCo differential IK) as a retargeting baseline for the Wuji right hand.
+#
+# The vendored MJCF has a fixed base, so a <freejoint> is injected at load time:
+# Mink then solves the wrist pose AND the joint angles together, which is the
+# strongest form of this baseline and matches what our method optimises.
+#
+# Targets are all 21 keypoint frames (not just the five fingertips) so the
+# baseline sees exactly the same correspondence information our method does.
+#
+# `scaling` maps human hand size onto robot hand size and is THE tunable here;
+# it is fitted on the same held-out split, with the same budget, as our weights.
+mink:
+  scaling: 1.0
+  iters: 300
+  dt: 0.02
+  damping: 1.0e-4
+  solver: "daqp"
+  position_cost: 1.0
+  posture_cost: 1.0e-3
+  lm_damping: 1.0e-3

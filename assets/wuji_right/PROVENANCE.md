@@ -13,10 +13,11 @@ Only the right-hand `body` variant is vendored — the upstream repository is
 | `meshes/*.STL` (26) | `hand/body/meshes/right/*.STL` |
 | `mjcf/right.xml` | `hand/body/mjcf/right.xml` |
 
-**Only modification:** mesh search paths were rewritten from
-`../meshes/right/` to `../meshes/` to match this flattened layout
-(`filename=` attributes in the URDF, `meshdir=` in the MJCF). Geometry, joint
-definitions and limits are untouched.
+**Only modification:** mesh search paths were rewritten to match this flattened
+layout — `../meshes/right/` becomes `meshes/` in the URDF's `filename=`
+attributes (the URDF sits beside `meshes/` here, not in a `urdf/` subdirectory)
+and `../meshes/` in the MJCF's `meshdir=`. Geometry, joint definitions and
+limits are untouched.
 
 The URDF declares 25 joints, of which 20 are revolute and actuated; the MJCF is
 used only by the Mink IK baseline.

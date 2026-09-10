@@ -1,0 +1,19 @@
+# DexPilot (Handa et al. 2019) as implemented in `dex_retargeting`, configured
+# for the Wuji right hand.  finger1 is the thumb; DexPilot projects thumb-to-
+# finger distances, so the thumb must come first.
+#
+# `scaling_factor` maps human hand size to robot hand size and is THE tunable of
+# this method.  It is fitted on the same held-out split as our own weights, with
+# the same budget -- see configs/tuning_split.yaml and RESULTS.md.
+retargeting:
+  type: DexPilot
+  urdf_path: ASSETS/right.urdf          # rewritten to an absolute path at load time
+  wrist_link_name: "right_palm_link"
+  finger_tip_link_names:
+    - right_finger1_tip_link            # thumb
+    - right_finger2_tip_link            # index
+    - right_finger3_tip_link            # middle
+    - right_finger4_tip_link            # ring
+    - right_finger5_tip_link            # pinky
+  scaling_factor: 1.0
+  low_pass_alpha: 1.0                   # offline, single frame: no filtering
