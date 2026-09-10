@@ -1,162 +1,160 @@
-# toporetarget-reimpl
+<div align="center">
 
-**Unofficial reimplementation** of *TopoRetarget: Interaction-Preserving
-Retargeting for Dexterous Manipulation*
-([arXiv:2606.16272](https://arxiv.org/abs/2606.16272)), evaluated on
-**ContactPose** with the **Wuji Hand**.
+# TopoRetarget — reimplementation
 
-> Not affiliated with, endorsed by, or reviewed by the paper's authors. At the
-> time of writing the authors' [project page](https://toporetarget2026.github.io/TopoRetarget/)
-> links no code, so nothing here could be checked against a reference
-> implementation. Every number below was produced by this repository; where our
-> setup necessarily departs from the paper, it is listed in
-> [Known deviations](#known-deviations-from-the-paper) rather than smoothed over.
+**Teach a robot hand by copying the *interaction*, not the pose.**
 
-Given a human hand-object interaction, it solves for the robot base pose and
-joint angles that reproduce the **same interaction** — preserving the relative
-hand-object geometry while keeping the hand out of the object — and ships an
-interactive viewer for inspecting the optimisation and the ablations.
+An unofficial, from-scratch implementation of
+[*TopoRetarget: Interaction-Preserving Retargeting for Dexterous Manipulation*](https://arxiv.org/abs/2606.16272),
+with an interactive 3-D viewer for watching the optimisation actually happen.
 
-## Results
+[![tests](https://github.com/<OWNER>/toporetarget-reimpl/actions/workflows/ci.yml/badge.svg)](https://github.com/<OWNER>/toporetarget-reimpl/actions/workflows/ci.yml)
+[![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg)](pyproject.toml)
+[![live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://<OWNER>.github.io/toporetarget-reimpl/viewer/)
 
-<!-- RESULTS:BEGIN -->
-Run `scripts/reproduce.sh` to generate this table.
-<!-- RESULTS:END -->
+### ▶ **[Open the interactive viewer](https://<OWNER>.github.io/toporetarget-reimpl/viewer/)**
 
-## Quick start
+<img src="docs/media/hero.gif" width="880" alt="Human hand on the left, Wuji robot hand on the right, converging onto the same grasp">
 
-Nothing needs downloading to run the code: the Wuji right hand (URDF, 26 meshes,
-MJCF) is vendored under `assets/`, and the demo works on synthetic grasps.
+<sub>A real GRAB grasp, retargeted. Left: the human demonstration. Right: the Wuji
+Hand, solved from its initial pose to reproduce the same hand-object
+relationship. In the viewer you drag to orbit — both panes share one camera.</sub>
+
+</div>
+
+---
+
+## The problem, in one picture
+
+A human hand and a robot hand have different shapes, sizes and joints. Copy the
+finger angles across and the fingers pass through the object or lose contact
+entirely — and a policy trained on broken references learns broken behaviour.
+
+TopoRetarget instead builds a small **interaction graph** over the hand keypoints
+*and* points on the object, and asks the robot to preserve the *local relative
+geometry* of that graph — who touches what, from which direction, at what
+distance — while staying out of the object.
+
+<div align="center">
+<img src="docs/media/ablation.png" width="880" alt="The same grasp solved with the full method, without the interaction term, and without the penetration term">
+<br><sub>The same grasp, three ways. Drop <code>E_IM</code> and the hand never
+commits to the object; drop <code>E_pen</code> and it grips <em>better</em> —
+by sinking 6 mm into the mug. Every term is switchable in the viewer, live.</sub>
+</div>
+
+## Try it
+
+Nothing to download: the Wuji right hand (URDF, 26 meshes, MJCF) is vendored, and
+the demo runs on synthetic grasps.
 
 ```bash
-git clone https://github.com/<you>/toporetarget-reimpl && cd toporetarget-reimpl
-pip install -e ".[dev]"          # add ".[baselines]" for DexPilot and Mink
-pytest -q                        # 43 tests, CPU only (4 skip without datasets)
+git clone https://github.com/<OWNER>/toporetarget-reimpl && cd toporetarget-reimpl
+pip install -e ".[dev]"
+pytest -q                                              # 43 tests, CPU only
 
 python scripts/export_viewer.py --source synthetic:cylinder
-open viewer/index.html           # orbit, scrub the optimisation, toggle losses
+open viewer/index.html                                 # orbit · scrub · toggle losses
 ```
 
-To run on real data you need ContactPose (and, for the sequence experiment, GRAB
-and MANO). See [THIRD_PARTY.md](THIRD_PARTY.md) for where to get them and under
-what terms, then:
+Real grasps need ContactPose or GRAB, which are licence-gated and not
+redistributed here — see [THIRD_PARTY.md](THIRD_PARTY.md). Once you have them:
 
 ```bash
-export CONTACTPOSE_GRASPS=/path/to/grasps CONTACTPOSE_MODELS=/path/to/ply_files_mm
-./scripts/reproduce.sh           # eval set -> tuning -> main table -> RESULTS.md
+python scripts/export_viewer.py --source contactpose:mug \
+    --grasps /path/to/grasps --models /path/to/ply_files_mm
 ```
 
-## What is and is not implemented
+## What the viewer gives you
 
 | | |
 |---|---|
-| ✅ Stage 1 — relative bone-direction initialisation (`E_bone`) + Procrustes base placement | `optimize.py`, `robot.py` |
-| ✅ Stage 2 — interaction mesh (Delaunay over hand + object anchors) | `interaction.py` |
-| ✅ Stage 3 — distance-aware weights, Laplacian coordinates (`E_IM`) | `interaction.py`, `optimize.py` |
-| ✅ Stage 4 — regularisation (`E_reg`), penetration (`E_pen`), joint limits (`E_lim`) | `optimize.py` |
-| ✅ Eq. 10 / Eq. 12 metrics, exact signed distance at evaluation | `metrics.py` |
-| ✅ DexPilot and Mink baselines, through their upstream libraries | `baselines/` |
-| ❌ The downstream **RL tracking controller** (PPO), and therefore the pen-spinning and sim-to-real results | — |
-| ❌ OmniRetarget and GeoRT baselines | — |
+| **Synchronised panes** | one shared camera renders the human and the robot side by side, so poses can be compared directly rather than by memory |
+| **Scrub the optimisation** | play the solver from initialisation to convergence, or drag to any iteration |
+| **Ablation switch** | full / no `E_IM` / no `E_pen` / no `E_bone` / no `E_reg`, with the loss curves and live contact and penetration readouts |
+| **Interaction mesh overlay** | the Delaunay edges, colour-coded hand-hand / object-object / **cross** — the cross edges are the ones carrying the interaction |
 
-The objective, with positional terms in mm² so the weights stay O(1):
+<div align="center">
+<img src="docs/media/interaction-mesh.png" width="880" alt="The interaction mesh overlaid on both hands, with loss curves and live metrics">
+<br><sub>The interaction mesh switched on: the graph whose local relative
+geometry the optimisation is trying to preserve.</sub>
+</div>
+
+## How it works
+
+Four stages, each mapped to where it lives:
+
+| Paper | Here |
+|---|---|
+| ① relative bone directions `E_bone`, Procrustes base placement | `optimize.py`, `robot.py` |
+| ② interaction mesh — Delaunay over hand keypoints + object anchors | `interaction.py` |
+| ③ distance-aware weights, Laplacian coordinates `E_IM` | `interaction.py`, `optimize.py` |
+| ④ regularisation `E_reg`, penetration `E_pen`, joint limits `E_lim` | `optimize.py` |
 
 ```
 L = w_IM·E_IM + w_bone·E_bone + w_reg·E_reg + w_pen·E_pen + w_lim·E_lim
 ```
 
-Base orientation uses the continuous 6-D rotation representation; joint limits
-are enforced by a barrier *and* by projected clamping each step.
+Base orientation uses the continuous 6-D rotation representation. Penetration is
+measured on **sampled link surfaces**, not on keypoints — penalising only
+keypoints lets the finger geometry sink into the object while the score looks
+clean (0.80 mm reported where the link surfaces were 9.00 mm inside).
 
-## How the evaluation is set up
+Two explainers walk through the maths with animations:
+**[the method](https://<OWNER>.github.io/toporetarget-reimpl/toporetarget_explained.html)** ·
+**[Stage 3 in detail](https://<OWNER>.github.io/toporetarget-reimpl/stage3_laplacian_explained.html)**
 
-Two choices do most of the work in making the numbers trustworthy:
+## Honest scope
 
-**Hyper-parameters are fitted on a different person.** The paper does not publish
-its weights, so ours are fitted — `scripts/tune.py` samples 40 configurations on
-`configs/tuning_split.yaml`, which is a **different ContactPose participant**
-from the benchmark, and minimises `mean(E_prec + D_pen_max)`. Each baseline gets
-the same split, the same objective and the same budget for its own scaling
-factor. Ours spends that budget on three weights and each baseline on one
-scalar, which favours the baselines. The winners are frozen in `configs/` and
-one single set is used for every grasp.
-
-**Penetration is measured on the hand's geometry, not on its keypoints.** Eq. 12
-is defined over sampled robot-hand surface points, so both the loss and the
-metric sample the 26 link meshes (1040 points in the loss, 5200 in the metric).
-An earlier version of this code penalised only the 21 keypoints and 20 bone
-midpoints; on the synthetic cylinder that scored 0.80 mm while the actual link
-surfaces were 9.00 mm inside the object.
-
-## Known deviations from the paper
-
-Things we had to decide because the paper does not say, or could not match:
-
-1. **Loss weights are not published.** Fitted as described above. This is the
-   most likely source of any gap between our numbers and theirs.
-2. **`E_prec`'s `o_c` is under-specified.** We read it as the nearest point on
-   the object surface, so `h_c − o_c` is a *contact offset* and the metric is
-   invariant to sliding along the surface. Under the alternative reading (object
-   origin) the term cancels and Eq. 10 collapses to plain keypoint error; that
-   variant is reported too, as `E_prec_origin_mm`.
-3. **The contact set `C` is ours.** "In-contact hand links" needs a threshold; we
-   use hand keypoints within **10 mm** of the surface *in the human demonstration*,
-   so every method is scored on the same set and cannot improve by contacting
-   elsewhere.
-4. **The paper's 25-of-28 grasp list is not published.** We report all 24 grasps
-   of one participant, and mark a paper-comparable subset by removing the three
-   lowest-solidity objects — the count is the paper's, the objective selection
-   rule is ours.
-5. **Optimisation uses a differentiable signed-distance surrogate**, evaluation
-   uses exact signed distance (libigl fast winding number). The two therefore
-   disagree slightly; only the exact one is ever reported.
-6. **Keypoint correspondence** (which Wuji link stands for which MANO joint) is a
-   modelling choice in `robot.py::_keypoint_frames()`.
-7. **Baseline configurations are ours.** `configs/baselines/` is public; a better
-   configuration would change the comparison.
-8. **One participant, one hand.** No cross-embodiment claim is made or tested.
+- **Unofficial.** Not affiliated with the authors, and at the time of writing
+  their project page links no code, so nothing here was checked against a
+  reference implementation.
+- **Retargeting only.** The downstream RL tracking controller — and therefore the
+  pen-spinning and sim-to-real results — is not implemented.
+- **The paper does not publish its loss weights.** Ours were fitted on a
+  *different* ContactPose participant from any we evaluate on, then frozen; the
+  same single set is used everywhere. `scripts/tune.py` reproduces the search.
+- **A full benchmark harness is included** — Eq. 10 and Eq. 12 metrics, DexPilot
+  and Mink baselines through their own upstream libraries, a frozen evaluation
+  set — but the complete table has not been run for this release. The numbers
+  this repository does publish are generated by `scripts/make_results.py`; none
+  are typed by hand.
 
 ## Layout
 
 ```
-assets/wuji_right/   vendored Wuji right hand (MIT) — URDF, 26 STL meshes, MJCF
-configs/             frozen eval set, tuning split, weights, baseline configs
-toporetarget/        geometry robot interaction optimize data metrics solve
-                     contactpose grab mano   (mano.py: chumpy-free MANO forward)
-baselines/           dexpilot.py, mink_ik.py — thin adapters over upstream libraries
-scripts/             make_eval_set  make_tuning_split  tune  eval_contactpose
-                     eval_grab_sequence  export_viewer  make_results  reproduce.sh
-tests/               43 tests; 39 need nothing, 4 unlock with the datasets
-viewer/              three.js viewer; robot meshes shared across payloads
-docs/                explainers + the GitHub Pages entry point
+assets/wuji_right/   vendored Wuji right hand (MIT): URDF, 26 STL meshes, MJCF
+toporetarget/        geometry robot interaction optimize metrics solve
+                     contactpose grab mano  ← chumpy-free MANO forward model
+baselines/           DexPilot and Mink, via dex_retargeting and mink
+configs/             frozen evaluation set, tuning split, weights
+scripts/             export_viewer · run_retarget · tune · eval_* · reproduce.sh
+viewer/              three.js viewer; link meshes shared across payloads
+docs/                explainers and the GitHub Pages entry point
 ```
 
-`toporetarget/mano.py` is worth a note: GRAB stores hand *parameters*, so turning
-it into keypoints normally needs `smplx` + `chumpy`, and `chumpy` needs an old
-NumPy and hence a second environment. The MANO pickle is almost all plain arrays,
-and GRAB ships each subject's own hand template, so the whole chain collapses to
-a stub class during unpickling plus standard linear blend skinning. **This repo
-runs in one environment.**
+One detail worth calling out: `toporetarget/mano.py` reads the MANO model without
+`chumpy`, so the GRAB path needs no second Python environment — the whole
+repository runs in one.
 
 ## Licence
 
-Our code is MIT. The vendored Wuji assets are MIT (see
-`assets/wuji_right/PROVENANCE.md`). **No dataset content is redistributed** —
-ContactPose, GRAB, ContactDB and MANO all carry their own terms, listed in
-[THIRD_PARTY.md](THIRD_PARTY.md). Viewer payloads derived from those datasets are
-git-ignored and regenerated locally.
+Code is MIT. Vendored Wuji assets are MIT
+(`assets/wuji_right/PROVENANCE.md`). **No dataset content is redistributed**;
+ContactPose, GRAB, ContactDB and MANO each carry their own terms, listed in
+[THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Citing
 
-Cite the original paper, not this repository:
+Cite the paper, not this repository:
 
 ```bibtex
 @article{wu2026toporetarget,
-  title  = {TopoRetarget: Interaction-Preserving Retargeting for Dexterous Manipulation},
-  author = {Wu, Jielin and Yao, Shenzhe and He, Guanqi and Liu, Xiaohan and
-            Zeng, Zhaoqing and Jiang, Xiangrui and Yang, Han and Zhang, Wentao
-            and Zhao, Hang},
+  title   = {TopoRetarget: Interaction-Preserving Retargeting for Dexterous Manipulation},
+  author  = {Wu, Jielin and Yao, Shenzhe and He, Guanqi and Liu, Xiaohan and
+             Zeng, Zhaoqing and Jiang, Xiangrui and Yang, Han and Zhang, Wentao
+             and Zhao, Hang},
   journal = {arXiv preprint arXiv:2606.16272},
-  year   = {2026}
+  year    = {2026}
 }
 ```

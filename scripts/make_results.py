@@ -16,9 +16,17 @@ import yaml
 
 from toporetarget.paths import CONFIGS
 
-# The paper publishes relative improvements over the baseline average, not
-# absolute millimetres, so those are the quantities that can be set side by side.
-PAPER = {"E_prec_vs_baseline_avg_pct": -55.0, "D_pen_vs_baseline_avg_pct": -92.0}
+# Table 1 of arXiv:2606.16272 (ContactPose).  The paper reports its baselines
+# too, so our reproduction of DexPilot and Mink can be checked against theirs --
+# which tests whether the two experimental setups are comparable at all, not just
+# whether our method is good.
+PAPER = {
+    "ours": (7.71, 1.07),          # the paper's TopoRetarget
+    "dexpilot": (14.13, 11.87),
+    "mink": (14.12, 20.12),
+    "omniretarget": (14.15, 1.15),  # not reproduced here
+    "geort": (26.77, 22.22),        # not reproduced here
+}
 BASELINES = ["dexpilot", "mink"]
 ABLATIONS = ["ours:no_IM", "ours:no_pen", "ours:no_bone", "ours:no_reg"]
 PRETTY = {"ours": "**ours**", "dexpilot": "DexPilot", "mink": "Mink",
@@ -81,15 +89,31 @@ def main():
         body = []
         for m in ["ours", *BASELINES]:
             v = summary.get(f"{m}|{subset}")
-            if v:
-                body.append([PRETTY[m], v["n"], f"{v['E_prec_mm']:.2f}",
-                             f"{v['E_prec_median_mm']:.2f}",
-                             f"{v['D_pen_max_mean_mm']:.2f}",
-                             f"{v['D_pen_max_mm']:.2f}", f"{v['seconds_mean']:.2f}"])
-        L.append(table(body, ["method", "n", "E_prec mean (mm)", "E_prec median (mm)",
-                              "D_pen_max mean (mm)", "D_pen_max worst (mm)",
-                              "solve time (s)"]))
+            if not v:
+                continue
+            pe, pd = PAPER[m]
+            body.append([PRETTY[m], v["n"], f"{v['E_prec_mm']:.2f}", f"{pe:.2f}",
+                         f"{v['D_pen_max_mean_mm']:.2f}", f"{pd:.2f}",
+                         f"{v['seconds_mean']:.2f}"])
+        L.append(table(body, ["method", "n", "E_prec here (mm)",
+                              "E_prec paper (mm)", "D_pen_max here (mm)",
+                              "D_pen_max paper (mm)", "solve time (s)"]))
         L.append("")
+        L.append("The paper's column is Table 1 of arXiv:2606.16272. It is a "
+                 "reference point, **not** a like-for-like target: the paper does "
+                 "not publish which grasps it used, its weights, its contact-set "
+                 "threshold, or (for the ContactPose table) which robot hand. The "
+                 "rows worth staring at are DexPilot and Mink — those are the same "
+                 "upstream methods on both sides, so the gap between our number "
+                 "and theirs measures how far apart the two *setups* are, "
+                 "independently of whether our implementation of the paper's "
+                 "method is any good.\n")
+        L.append("Two baselines in the paper are not reproduced here: "
+                 f"OmniRetarget ({PAPER['omniretarget'][0]:.2f} mm / "
+                 f"{PAPER['omniretarget'][1]:.2f} mm), which the paper modified "
+                 "itself, and GeoRT "
+                 f"({PAPER['geort'][0]:.2f} mm / {PAPER['geort'][1]:.2f} mm), "
+                 "which needs a trained network.\n")
 
         ours = summary.get(f"ours|{subset}")
         base = [summary.get(f"{b}|{subset}") for b in BASELINES]
@@ -97,21 +121,19 @@ def main():
         if ours and base:
             e_avg = sum(b["E_prec_mm"] for b in base) / len(base)
             d_avg = sum(b["D_pen_max_mean_mm"] for b in base) / len(base)
-            L.append("Against the average of the baselines, next to what the paper "
-                     "reports. Two caveats on this comparison: the paper publishes "
-                     "relative improvements rather than absolute millimetres, so "
-                     "only relative figures can be set side by side; and its "
-                     "average is over four baselines (OmniRetarget, DexPilot, "
-                     "Mink, GeoRT) while ours is over the two we reproduce, so the "
-                     "denominators differ.\n")
+            p_e = sum(PAPER[b][0] for b in BASELINES) / len(BASELINES)
+            p_d = sum(PAPER[b][1] for b in BASELINES) / len(BASELINES)
+            L.append("Improvement over the average of the two baselines, computed "
+                     "the same way on both sides (so this row *is* like for like, "
+                     "even though the absolute millimetres are not):\n")
             L.append(table(
                 [["contact precision error",
                   f"{pct(ours['E_prec_mm'], e_avg):+.1f} %",
-                  f"{PAPER['E_prec_vs_baseline_avg_pct']:+.1f} %"],
+                  f"{pct(PAPER['ours'][0], p_e):+.1f} %"],
                  ["max penetration depth",
                   f"{pct(ours['D_pen_max_mean_mm'], d_avg):+.1f} %",
-                  f"{PAPER['D_pen_vs_baseline_avg_pct']:+.1f} %"]],
-                ["quantity", "this reimplementation", "paper (arXiv:2606.16272)"]))
+                  f"{pct(PAPER['ours'][1], p_d):+.1f} %"]],
+                ["quantity", "this reimplementation", "paper, same two baselines"]))
             L.append("")
 
     L.append("## Ablations\n")

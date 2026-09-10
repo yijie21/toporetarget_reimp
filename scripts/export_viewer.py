@@ -68,6 +68,13 @@ def export_robot_meshes(target_faces=500):
     print(f"[robot] {len(meshes)} link meshes -> viewer/robot_meshes.js ({mb:.1f} MB)")
 
 
+def pretty_label(frame, key):
+    """A short, human name for the viewer's dataset switch ("mug", not "grab mug drink 1")."""
+    meta = frame.meta
+    name = meta.get("object") or meta.get("kind") or key
+    return str(name).replace("_", " ")
+
+
 def build_frame(args):
     kind, _, rest = args.source.partition(":")
     if kind == "synthetic":
@@ -89,7 +96,17 @@ def build_frame(args):
             raise SystemExit(f"no sequence {seq_name}.npz under {args.grab_root}")
         seq = GrabSequence(matches[0], args.mano, args.subject_meshes,
                            args.object_meshes)
-        return seq.frame(int(frame_idx or 0), n_obj=args.n_obj), f"grab_{seq_name}"
+        if frame_idx in ("", "best"):
+            # the tightest grasp in the sequence: smallest mean fingertip gap
+            window = seq.grasp_window(max_tip_mm=25.0, stride=10)
+            if not window:
+                raise SystemExit(f"{seq_name}: no in-contact frame found")
+            idx = min(window, key=lambda i: seq.tip_distances_mm(i).mean())
+            print(f"[frame] picked {idx} of {len(seq)} "
+                  f"(mean fingertip gap {seq.tip_distances_mm(idx).mean():.1f} mm)")
+        else:
+            idx = int(frame_idx)
+        return seq.frame(idx, n_obj=args.n_obj), f"grab_{seq_name}"
     raise SystemExit(f"unknown --source {args.source!r}")
 
 
@@ -114,7 +131,7 @@ def main():
     base_weights = yaml.safe_load(open(args.weights))["weights"]
     hand = WujiHand(str(WUJI_URDF))
     frame, key = build_frame(args)
-    label = args.label or key.replace("_", " ")
+    label = args.label or pretty_label(frame, key)
     print(f"[data] {frame.meta}")
 
     sdf = ExactSDF(frame.obj)

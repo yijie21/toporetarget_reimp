@@ -64,7 +64,7 @@ canvas{display:block}
   <div class="sep"></div>
   <span class="lbl">ablation</span><div class="seg" id="abl"></div>
   <div class="metric">
-    <div><b>contact</b><span id="mC" class="good">–</span></div>
+    <div><b>contact precision</b><span id="mE" class="good">–</span></div>
     <div><b>max penetration</b><span id="mP" class="good">–</span></div>
   </div>
 </div>
@@ -211,14 +211,27 @@ function loadDataset(ds){
 
   applyToggles();
 
-  // frame camera on object centroid
-  let c=[0,0,0]; for(const p of D.object.vertices){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];}
-  const n=D.object.vertices.length; c=c.map(v=>v/n);
-  ctrl.target.set(c[0],c[1],c[2]); cam.position.set(c[0]+0.26,c[1]-0.26,c[2]+0.13); ctrl.update();
+  // Frame the camera on everything that matters -- object AND hand.  Targeting
+  // the object centroid with a fixed offset cropped the hand off the edge.
+  const box=new THREE.Box3();
+  for(const p of D.object.vertices) box.expandByPoint(new THREE.Vector3(p[0],p[1],p[2]));
+  for(const p of D.human_kpts)      box.expandByPoint(new THREE.Vector3(p[0],p[1],p[2]));
+  const ctr=box.getCenter(new THREE.Vector3());
+  const radius=Math.max(box.getSize(new THREE.Vector3()).length()*0.5, 0.06);
+  // cam.aspect is already (innerWidth/2)/innerHeight, i.e. one pane
+  const vFov=cam.fov*Math.PI/180, hFov=2*Math.atan(Math.tan(vFov/2)*cam.aspect);   // cam.aspect is already per-pane
+  const dist=radius/Math.tan(Math.min(vFov,hFov)/2)*0.95;
+  const dir=new THREE.Vector3(0.82,-0.44,0.36).normalize();
+  ctrl.target.copy(ctr); cam.position.copy(ctr.clone().addScaledVector(dir,dist)); ctrl.update();
 
-  document.getElementById('subL').textContent = `${D.meta.source.obj} · ${D.meta.source.seq} f${D.meta.source.frame}`;
+  const src=D.meta.source, objName=src.object||src.obj||src.kind||'object';
+  document.getElementById('subL').textContent = src.seq
+    ? `${objName} · ${src.seq} · frame ${src.frame}`
+    : `${objName} · synthetic grasp`;
   document.getElementById('subR').textContent = `Wuji hand · ${D.meta.ablations.length} ablations`;
-  document.getElementById('srcinfo').textContent = `GRAB ${D.meta.source.seq} · frame ${D.meta.source.frame}`;
+  document.getElementById('srcinfo').textContent = src.seq
+    ? `${(src.source||'').toUpperCase()} ${src.seq} · frame ${src.frame}`
+    : 'synthetic grasp · no dataset required';
   buildAbl();
   document.getElementById('scrub').max=D.runs[run].trace.length-1;
   playOnce();   // auto-play the optimization flow: initial pose -> converged
@@ -245,10 +258,11 @@ function setFrame(i){
   for(let k=0;k<21;k++){const p=rec.kpts[k];content.rkSpheres[k].position.set(p[0],p[1],p[2]);}
   // robot skeleton update
   if(content.robotSkel){const pos=content.robotSkel.geometry.attributes.position.array;let o=0;for(const[a,b]of D.bones){const A=rec.kpts[a],B=rec.kpts[b];pos[o++]=A[0];pos[o++]=A[1];pos[o++]=A[2];pos[o++]=B[0];pos[o++]=B[1];pos[o++]=B[2];}content.robotSkel.geometry.attributes.position.needsUpdate=true;}
-  const cm=rec.contact_mm,pm=rec.max_pen_mm;
-  const eC=document.getElementById('mC'),eP=document.getElementById('mP');
-  eC.textContent=cm.toFixed(2)+' mm';eC.className=cm<10?'good':'warn';
-  eP.textContent=pm.toFixed(2)+' mm';eP.className=pm<3?'good':'warn';
+  const pm=rec.max_pen_mm, ep=(D.runs[run].final||{}).E_prec_mm;
+  const eE=document.getElementById('mE'),eP=document.getElementById('mP');
+  if(ep===undefined){eE.textContent='–';}
+  else{eE.textContent=ep.toFixed(2)+' mm';eE.className=ep<8?'good':'warn';}
+  eP.textContent=pm.toFixed(2)+' mm';eP.className=pm<4?'good':'warn';
   document.getElementById('iterlab').textContent=`iter ${rec.iter} / ${tr[tr.length-1].iter}`;
   document.getElementById('scrub').value=idx; drawLoss(); updateStatus();
 }
