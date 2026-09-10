@@ -8,6 +8,11 @@ import numpy as np
 import torch
 
 EPS = 1e-8
+# Epsilon added *inside* a sqrt must be far smaller than EPS: sqrt(1e-8) is
+# 1e-4 m = 0.1 mm, which biased the cylinder SDF by that much everywhere inside
+# the object.  sqrt(1e-18) is 1e-9 m, negligible against millimetre metrics,
+# while still keeping the gradient finite at the degenerate point.
+SQRT_EPS = 1e-18
 
 
 # --------------------------------------------------------------------------- #
@@ -91,12 +96,12 @@ class Cylinder:
     def sdf(self, p):
         c = torch.as_tensor(self.center, dtype=p.dtype, device=p.device)
         q = p - c
-        d_rad = torch.sqrt(q[..., 0] ** 2 + q[..., 1] ** 2 + EPS) - self.radius
+        d_rad = torch.sqrt(q[..., 0] ** 2 + q[..., 1] ** 2 + SQRT_EPS) - self.radius
         d_z = torch.abs(q[..., 2]) - self.hz
         # 2-D rounded-box SDF in (radial, axial) coordinates
         ax = torch.clamp(d_rad, min=0.0)
         az = torch.clamp(d_z, min=0.0)
-        outside = torch.sqrt(ax ** 2 + az ** 2 + EPS)
+        outside = torch.sqrt(ax ** 2 + az ** 2 + SQRT_EPS)
         inside = torch.clamp(torch.maximum(d_rad, d_z), max=0.0)
         return outside + inside
 
