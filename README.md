@@ -24,6 +24,14 @@ penetration. In the viewer you drag to orbit; both panes share one camera.</sub>
 
 </div>
 
+> [!IMPORTANT]
+> **The figures on this page are real GRAB grasps; the live demo and a fresh
+> clone are not.** GRAB, ContactPose and MANO are all licence-gated, and nothing
+> derived from them is redistributed here — so the hosted viewer ships synthetic
+> grasps only. Everything needed to regenerate these exact figures is in the
+> repository; the data is the one thing you bring yourself. See
+> [what you can run with what](#try-it).
+
 ---
 
 ## The problem, in one picture
@@ -47,8 +55,7 @@ switchable in the viewer, live.</sub>
 
 ## Try it
 
-Nothing to download: the Wuji right hand (URDF, 26 meshes, MJCF) is vendored, and
-the demo runs on synthetic grasps.
+The robot is vendored, the data is not. Nothing here needs a download to run:
 
 ```bash
 git clone https://github.com/yijie21/toporetarget_reimp && cd toporetarget_reimp
@@ -59,12 +66,30 @@ python scripts/export_viewer.py --source synthetic:cylinder
 open viewer/index.html                                 # orbit · scrub · toggle losses
 ```
 
-Real grasps need ContactPose or GRAB, which are licence-gated and not
-redistributed here — see [THIRD_PARTY.md](THIRD_PARTY.md). Once you have them:
+### What you can run with what
+
+| you have | you get |
+|---|---|
+| **nothing** | the whole method and the viewer on synthetic grasps, and 39 of the 43 tests |
+| **+ [ContactPose](https://contactpose.cc.gatech.edu/)** | real grasps of 24 real objects, the benchmark, the ablations. **No MANO needed** — ContactPose stores 3-D hand joints directly, so this path has no `chumpy`, no `smplx` and no second environment |
+| **+ [GRAB](https://grab.is.tue.mpg.de/) and [MANO](https://mano.is.tue.mpg.de/)** | the sequence experiment, and the wine-glass figures at the top of this page |
+
+Both dataset sites need a (free) registration and accept their own terms; see
+[THIRD_PARTY.md](THIRD_PARTY.md) for exactly which files and which licences.
 
 ```bash
+# real grasps, ContactPose — no MANO required
 python scripts/export_viewer.py --source contactpose:mug \
     --grasps /path/to/grasps --models /path/to/ply_files_mm
+
+# the figures above, GRAB — needs the MANO model to pose the human hand
+python scripts/export_viewer.py --source grab:wineglass_lift:3495 \
+    --grab-root /path/to/GRAB/s1_data --mano /path/to/MANO_RIGHT.pkl \
+    --subject-meshes /path/to/tools/subject_meshes \
+    --object-meshes /path/to/contactdb_meshes
+
+# and then re-render the README figures from the viewer itself
+python scripts/capture_media.py --dataset wineglass --ablations full,no_IM
 ```
 
 ## What the viewer gives you

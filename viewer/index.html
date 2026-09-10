@@ -235,7 +235,7 @@ function loadDataset(ds){
   document.getElementById('subR').textContent = `Wuji hand · ${D.meta.ablations.length} ablations`;
   document.getElementById('srcinfo').textContent = src.seq
     ? `${(src.source||'').toUpperCase()} ${src.seq} · frame ${src.frame}`
-    : 'synthetic grasp · no dataset required';
+    : 'synthetic grasp · no dataset required — real grasps need ContactPose or GRAB';
   buildAbl();
   document.getElementById('scrub').max=D.runs[run].trace.length-1;
   playOnce();   // auto-play the optimization flow: initial pose -> converged

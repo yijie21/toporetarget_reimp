@@ -60,12 +60,18 @@
     </a>
   </div>
 
-  <h2>What the viewer shows</h2>
+  <h2>What this demo shows — and what it does not</h2>
   <p>
-    The published demo runs on <b>synthetic</b> grasps. ContactPose and GRAB are
-    licence-gated and their geometry is not redistributed, so payloads for real
-    grasps are generated locally with
+    This viewer runs on <b>synthetic</b> grasps. The real-grasp figures in the
+    repository come from GRAB, and ContactPose, GRAB and MANO are all
+    licence-gated: none of their geometry is redistributed here, so payloads for
+    real grasps are generated on your own machine after you obtain the data.
+  </p>
+  <p>
+    ContactPose is the low-friction route — it stores 3-D hand joints directly,
+    so that path needs <b>no MANO model</b> and no second Python environment:
     <code>python scripts/export_viewer.py --source contactpose:mug</code>.
+    Reproducing the wine-glass figures additionally needs GRAB and MANO.
   </p>
 
   <div class="note">
