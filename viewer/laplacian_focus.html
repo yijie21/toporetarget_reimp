@@ -90,9 +90,14 @@ input[type=range]{accent-color:var(--acc2);width:110px}
   </div>
 </div>
 
-<script src="data_grab_cylinder.js"></script>
-<script src="data_grab_mug.js"></script>
-<script src="data_grab_sphere.js"></script>
+<!-- Shared link meshes plus a generated manifest; see scripts/export_viewer.py. -->
+<script src="robot_meshes.js"></script>
+<script src="manifest.js"></script>
+<script>
+(window.TR_MANIFEST || []).forEach(function (e) {
+  document.write('<scr' + 'ipt src="' + e.file + '"><\/scr' + 'ipt>');
+});
+</script>
 <script type="importmap">
 { "imports": { "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
@@ -102,7 +107,9 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
 const KAPPA=80.0;
-const DATA=[{v:"GRAB_CYLINDER",label:"cylinder"},{v:"GRAB_MUG",label:"mug"},{v:"GRAB_SPHERE",label:"sphere"}].filter(d=>window[d.v]);
+const DATA=(window.TR_MANIFEST||[])
+  .filter(e=>window[e.var])
+  .map(e=>({v:e.var,label:(window[e.var].meta&&window[e.var].meta.label)||e.label}));
 const VTX=[{i:8,label:"index"},{i:4,label:"thumb"},{i:12,label:"middle"},{i:16,label:"ring"},{i:20,label:"pinky"}];
 
 const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
@@ -144,7 +151,7 @@ function load(){
   if(D.human_mesh)reg(new THREE.Mesh(bgeo(D.human_mesh.vertices,D.human_mesh.faces),new THREE.MeshStandardMaterial({color:0xffb454,transparent:true,opacity:0.22,roughness:0.5,side:THREE.DoubleSide,depthWrite:false})));
   // robot link meshes (animated) — translucent so the arrows show through
   const rmat=new THREE.MeshStandardMaterial({color:0x9fb2d4,roughness:0.45,metalness:0.35,transparent:true,opacity:0.4,depthWrite:false});
-  for(const[name,m]of Object.entries(D.robot_meshes)){const mesh=reg(new THREE.Mesh(bgeo(m.vertices,m.faces),rmat));mesh.matrixAutoUpdate=false;content.linkMeshes[name]=mesh;}
+  for(const[name,m]of Object.entries(window.TR_ROBOT_MESHES||D.robot_meshes||{})){const mesh=reg(new THREE.Mesh(bgeo(m.vertices,m.faces),rmat));mesh.matrixAutoUpdate=false;content.linkMeshes[name]=mesh;}
   // overlays
   content.nbr=reg(new THREE.Group());
   content.arrowR=reg(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(),0.05,0x7c9cff,0.012,0.008));

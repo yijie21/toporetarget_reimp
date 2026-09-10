@@ -16,7 +16,6 @@ caller supplies the path to their own copy.
 from __future__ import annotations
 
 import pickle
-from pathlib import Path
 
 import numpy as np
 
@@ -38,11 +37,18 @@ class _Ch:
         self.__dict__.update(state)
 
 
+# The 2018 pickle references SciPy's private sparse submodules, deprecated since
+# SciPy 1.8 and slated for removal in 2.0.  Redirect them to the public namespace
+# so loading keeps working (and stops emitting DeprecationWarnings).
+_SCIPY_MOVED = {"scipy.sparse.csc": "scipy.sparse", "scipy.sparse.csr": "scipy.sparse",
+                "scipy.sparse.coo": "scipy.sparse", "scipy.sparse.base": "scipy.sparse"}
+
+
 class _Unpickler(pickle.Unpickler):
     def find_class(self, module, name):
         if module.startswith("chumpy"):
             return _Ch
-        return super().find_class(module, name)
+        return super().find_class(_SCIPY_MOVED.get(module, module), name)
 
 
 def load_mano(model_path) -> dict:

@@ -115,12 +115,8 @@ class GrabSequence:
         return keep
 
 
-@lru_cache(maxsize=8)
-def _kdtree_for(key):
-    raise RuntimeError("internal")
-
-
 def _kdtree(seq):
+    """The object is static in its own frame, so one tree serves the sequence."""
     from scipy.spatial import cKDTree
     if getattr(seq, "_tree", None) is None:
         seq._tree = cKDTree(seq.obj_verts)
