@@ -10,8 +10,11 @@ dist/
 viewer/data_contactpose_*.js
 viewer/data_grab_*.js
 
-# local dataset roots and intermediate results
+# local dataset roots
 data/
-runs/
 *.npz
 !tests/fixtures/*.npz
+
+# Run artefacts ARE committed: they are the evidence behind RESULTS.md (the full
+# hyper-parameter sweeps and every per-grasp measurement), and they are small.
+runs/_probe.json

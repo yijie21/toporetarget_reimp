@@ -1,0 +1,76 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>toporetarget-reimpl</title>
+<style>
+  :root { --fg:#1a1d24; --mut:#5c6472; --bg:#fbfbfd; --card:#fff; --line:#e4e7ee;
+          --accent:#3b5bdb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e6e8ee; --mut:#9aa3b2; --bg:#14161b; --card:#1b1e25;
+            --line:#2a2f3a; --accent:#8da2fb; }
+  }
+  * { box-sizing:border-box }
+  body { margin:0; padding:0 16px; background:var(--bg); color:var(--fg);
+         font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:820px; margin:0 auto; padding-block:56px 72px }
+  h1 { font-size:1.9rem; margin:0 0 .3em; letter-spacing:-.02em }
+  h2 { font-size:1.15rem; margin:2.4em 0 .6em; letter-spacing:-.01em }
+  .sub { color:var(--mut); margin:0 0 2em; font-size:1.02rem }
+  a { color:var(--accent) }
+  .cards { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)) }
+  .card { display:block; padding:18px 20px; background:var(--card);
+          border:1px solid var(--line); border-radius:12px; text-decoration:none;
+          color:inherit; transition:border-color .15s, transform .15s }
+  .card:hover { border-color:var(--accent); transform:translateY(-2px) }
+  .card b { display:block; margin-bottom:.25em; font-size:1.02rem }
+  .card span { color:var(--mut); font-size:.9rem }
+  .note { margin-top:2.6em; padding:14px 18px; border-left:3px solid var(--line);
+          color:var(--mut); font-size:.92rem }
+  code { background:var(--card); border:1px solid var(--line); border-radius:5px;
+         padding:.08em .35em; font-size:.88em }
+</style>
+<main>
+  <h1>toporetarget-reimpl</h1>
+  <p class="sub">
+    An unofficial reimplementation of
+    <a href="https://arxiv.org/abs/2606.16272">TopoRetarget: Interaction-Preserving
+    Retargeting for Dexterous Manipulation</a>, evaluated on ContactPose with the
+    Wuji Hand.
+  </p>
+
+  <div class="cards">
+    <a class="card" href="viewer/">
+      <b>Interactive viewer →</b>
+      <span>Scrub the optimisation, toggle each loss term, compare the human and
+      robot hands side by side.</span>
+    </a>
+    <a class="card" href="toporetarget_explained.html">
+      <b>How the method works →</b>
+      <span>Walkthrough of the four stages, from bone directions to the
+      interaction mesh.</span>
+    </a>
+    <a class="card" href="stage3_laplacian_explained.html">
+      <b>Stage 3 in detail →</b>
+      <span>Distance-aware weights and Laplacian coordinates, worked through.</span>
+    </a>
+    <a class="card" href="https://github.com/YOUR-GITHUB-USERNAME/toporetarget-reimpl">
+      <b>Source and results →</b>
+      <span>Code, the frozen evaluation protocol, and every number in
+      <code>RESULTS.md</code>.</span>
+    </a>
+  </div>
+
+  <h2>What the viewer shows</h2>
+  <p>
+    The published demo runs on <b>synthetic</b> grasps. ContactPose and GRAB are
+    licence-gated and their geometry is not redistributed, so payloads for real
+    grasps are generated locally with
+    <code>python scripts/export_viewer.py --source contactpose:mug</code>.
+  </p>
+
+  <div class="note">
+    Not affiliated with the paper's authors. No reference implementation was
+    available to check against; the deviations we had to decide for ourselves are
+    listed in the repository's README.
+  </div>
+</main>

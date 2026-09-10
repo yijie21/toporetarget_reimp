@@ -1,12 +1,18 @@
 # Loss weights for the TopoRetarget objective.
 #
-# The paper does not publish its weights.  These are tuned on a held-out split
-# (see configs/tuning_split.yaml) and FROZEN for every number in the main table;
-# the same single set is used for every object, exactly as the paper claims for
-# its own parameters.  Positional terms are in mm^2 so the weights stay O(1).
+# The paper does not publish its weights.  These were FITTED, not hand-picked:
+# scripts/tune.py sampled 40 configurations on configs/tuning_split.yaml (a
+# different ContactPose participant from the benchmark) and minimised
+# mean(E_prec_mm + D_pen_max_mm).  Best objective on that split: 8.052 mm.
+# Reproduce with:  python scripts/tune.py --method ours --budget 40 --seed 0
+#
+# One single set is used for every object in the main table, as the paper claims
+# for its own parameters.  Positional terms are in mm^2 so the weights stay O(1).
+# IM is the scale anchor (only ratios matter) and lim enforces a hard constraint,
+# so both were held fixed during the search.
 weights:
-  IM: 1.0        # E_IM   interaction-mesh Laplacian coordinates   (Stage 3)
-  bone: 8.0      # E_bone relative bone-direction                  (Stage 1)
-  reg: 0.4       # E_reg  smoothness / base prior                  (Stage 4)
-  pen: 25.0      # E_pen  penetration hinge on link surfaces       (Stage 4)
-  lim: 200.0     # E_lim  joint-limit barrier
+  IM: 1.0          # E_IM   interaction-mesh Laplacian coordinates  (Stage 3)
+  bone: 2.9263       # E_bone relative bone-direction                 (Stage 1)
+  reg: 0.7036        # E_reg  smoothness / base prior                 (Stage 4)
+  pen: 34.7644      # E_pen  penetration hinge on link surfaces      (Stage 4)
+  lim: 200.0      # E_lim  joint-limit barrier

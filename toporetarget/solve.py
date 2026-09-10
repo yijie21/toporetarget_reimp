@@ -23,13 +23,20 @@ class Solution:
 
 
 def solve_ours(hand, frame, *, weights=None, n_iters=500, lr=0.02,
-               pen_per_link=40, kappa=80.0, method="ours", **kw) -> Solution:
-    """This repository's implementation of the paper's Stage 1-4 optimisation."""
+               pen_per_link=40, kappa=80.0, method="ours", prev: "Solution" = None,
+               **kw) -> Solution:
+    """This repository's implementation of the paper's Stage 1-4 optimisation.
+
+    `prev` chains a sequence: the previous frame's solution both warm-starts the
+    optimisation and becomes the reference E_reg smooths towards.
+    """
     from .optimize import retarget
     t0 = time.time()
+    chain = dict(q_init=(prev.q, prev.d6, prev.t), ref=(prev.q, prev.d6, prev.t)) \
+        if prev is not None else {}
     out = retarget(hand, frame, weights=weights, n_iters=n_iters, lr=lr,
                    kappa=kappa, pen_per_link=pen_per_link,
-                   log_every=max(n_iters // 10, 1), **kw)
+                   log_every=max(n_iters // 10, 1), **chain, **kw)
     f = out["final"]
     return Solution(q=np.asarray(f["q"], np.float64),
                     d6=np.asarray(f["d6"], np.float64),

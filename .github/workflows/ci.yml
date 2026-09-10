@@ -1,0 +1,38 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install (CPU torch only — no GPU on runners)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
+
+      # ContactPose and GRAB are licence-gated and are never committed, so CI
+      # runs the synthetic end-to-end guards plus every unit test.  The full
+      # benchmark is reproduced locally with scripts/reproduce.sh.
+      - name: Run tests
+        run: pytest -q --durations=10
+
+      - name: Check the vendored assets are complete
+        run: |
+          test -f assets/wuji_right/right.urdf
+          test -f assets/wuji_right/mjcf/right.xml
+          test "$(ls assets/wuji_right/meshes/*.STL | wc -l)" -eq 26

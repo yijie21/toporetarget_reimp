@@ -8,9 +8,10 @@
 # baseline sees exactly the same correspondence information our method does.
 #
 # `scaling` maps human hand size onto robot hand size and is THE tunable here;
-# it is fitted on the same held-out split, with the same budget, as our weights.
+# fitted on the same held-out split with the same budget as our weights
+# (40 sampled values, best objective 10.498 mm).
 mink:
-  scaling: 1.0
+  scaling: 1.0879
   iters: 300
   dt: 0.02
   damping: 1.0e-4

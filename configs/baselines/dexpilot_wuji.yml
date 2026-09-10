@@ -15,5 +15,5 @@ retargeting:
     - right_finger3_tip_link            # middle
     - right_finger4_tip_link            # ring
     - right_finger5_tip_link            # pinky
-  scaling_factor: 1.0
+  scaling_factor: 1.0879
   low_pass_alpha: 1.0                   # offline, single frame: no filtering

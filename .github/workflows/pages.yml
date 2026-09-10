@@ -1,0 +1,51 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Assemble the site instead of committing a second copy of the viewer.
+      - name: Assemble site
+        run: |
+          mkdir -p _site/viewer
+          cp docs/*.html _site/
+          cp viewer/index.html viewer/laplacian_focus.html _site/viewer/
+          # Only payloads that are actually committed: synthetic ones.  Dataset
+          # derived payloads are git-ignored and never reach the site.
+          cp viewer/robot_meshes.js _site/viewer/ 2>/dev/null || true
+          for f in viewer/data_syn_*.js; do [ -e "$f" ] && cp "$f" _site/viewer/; done
+          # Rebuild the manifest from what was actually copied, so the page
+          # never requests a payload that is not in the repository.
+          python scripts/make_viewer_manifest.py _site/viewer
+          ls -la _site _site/viewer
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

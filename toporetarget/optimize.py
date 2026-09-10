@@ -74,13 +74,21 @@ def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
     V_s = torch.tensor(V_s_np, dtype=dt, device=device)
 
     # ---- Stage 1: base init by Procrustes alignment -------------------------
+    # On a sequence, `q_init` warm-starts from the previous frame's solution and
+    # `ref` re-points E_reg at it, which turns E_reg from a pull towards the
+    # initialisation into a genuine temporal smoothness term.  On a single frame
+    # both default to the Procrustes initialisation, as before.
     q0, d6_0, t0 = hand.procrustes_init(frame.human_kpts)
+    if q_init is not None:
+        q0, d6_0, t0 = (np.asarray(v, np.float32) for v in q_init)
     q = torch.tensor(q0, dtype=dt, device=device, requires_grad=True)
     d6 = torch.tensor(d6_0, dtype=dt, device=device, requires_grad=True)
     t = torch.tensor(t0, dtype=dt, device=device, requires_grad=True)
-    q_ref = torch.tensor(q0, dtype=dt, device=device)
-    d6_ref = torch.tensor(d6_0, dtype=dt, device=device)
-    t_ref = torch.tensor(t0, dtype=dt, device=device)
+    r_q, r_d6, r_t = (q0, d6_0, t0) if ref is None else (np.asarray(v, np.float32)
+                                                         for v in ref)
+    q_ref = torch.tensor(r_q, dtype=dt, device=device)
+    d6_ref = torch.tensor(r_d6, dtype=dt, device=device)
+    t_ref = torch.tensor(r_t, dtype=dt, device=device)
     lower, upper = hand.lower, hand.upper
 
     opt = torch.optim.Adam([q, d6, t], lr=lr)
