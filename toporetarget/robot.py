@@ -101,10 +101,10 @@ class WujiHand:
         ret = self.chain.forward_kinematics(q)
         return {k: v.get_matrix() for k, v in ret.items()}
 
-    def keypoints(self, q, d6, t):
+    def keypoints(self, q, d6, t, mats=None):
         """q:(B,20) joints, d6:(B,6) base rotation, t:(B,3) base translation.
-        Returns world-frame keypoints (B,21,3)."""
-        mats = self.fk_local(q)
+        Returns world-frame keypoints (B,21,3).  `mats` reuses a prior FK."""
+        mats = self.fk_local(q) if mats is None else mats
         local = torch.stack([mats[f][:, :3, 3] for f in self.kp_frames], dim=1)  # (B,21,3)
         R = rot6d_to_matrix(d6)                       # (B,3,3)
         world = torch.einsum("bij,bkj->bki", R, local) + t[:, None, :]
@@ -142,24 +142,43 @@ class WujiHand:
         cache[key] = out
         return out
 
-    def surface_points(self, q, d6, t, n_per_link=40, seed=0):
+    def _surface_layout(self, n_per_link, seed):
+        """Flattened samples: (pts (N,3) tensor, link order, per-point link index).
+
+        Flattening matters: transforming 26 per-link blocks separately builds ~26
+        small autograd nodes per iteration, which dominated the optimiser's
+        runtime.  One gather + one einsum is several times faster.
+        """
+        key = ("layout", n_per_link, seed)
+        cache = self.__dict__.setdefault("_surf_cache", {})
+        if key in cache:
+            return cache[key]
+        local = self.link_surface_samples(n_per_link, seed)
+        order = list(local.keys())
+        pts = torch.as_tensor(np.concatenate([local[l] for l in order], 0),
+                              dtype=self.dtype, device=self.device)
+        idx = torch.as_tensor(np.concatenate(
+            [np.full(len(local[l]), i, np.int64) for i, l in enumerate(order)]),
+            dtype=torch.long, device=self.device)
+        cache[key] = (pts, order, idx)
+        return cache[key]
+
+    def surface_points(self, q, d6, t, n_per_link=40, seed=0, mats=None):
         """Differentiable world-frame samples of the whole hand surface.
 
         q:(B,20) d6:(B,6) t:(B,3) -> (B,N,3).  This is what the penetration term
         and the Eq. 12 metric both act on: penalising only keypoints leaves the
         link geometry free to intersect the object.
+
+        `mats` lets a caller that already ran FK this iteration reuse it.
         """
-        local = self.link_surface_samples(n_per_link, seed)
-        mats = self.fk_local(q)
+        pts, order, idx = self._surface_layout(n_per_link, seed)
+        mats = self.fk_local(q) if mats is None else mats
+        T = torch.stack([mats[l] for l in order], dim=1)        # (B,L,4,4)
+        Tp = T.index_select(1, idx)                             # (B,N,4,4)
+        world = torch.einsum("bnij,nj->bni", Tp[:, :, :3, :3], pts) + Tp[:, :, :3, 3]
         R = rot6d_to_matrix(d6)
-        chunks = []
-        for link, pts in local.items():
-            T = mats[link]                                     # (B,4,4)
-            p = torch.as_tensor(pts, dtype=self.dtype, device=self.device)
-            world = torch.einsum("bij,nj->bni", T[:, :3, :3], p) + T[:, None, :3, 3]
-            chunks.append(world)
-        allp = torch.cat(chunks, dim=1)                        # (B,N,3)
-        return torch.einsum("bij,bnj->bni", R, allp) + t[:, None, :]
+        return torch.einsum("bij,bnj->bni", R, world) + t[:, None, :]
 
     # ----- initialisation ---------------------------------------------------- #
     def procrustes_init(self, human_kpts, q0=None):

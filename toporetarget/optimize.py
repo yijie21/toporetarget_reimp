@@ -86,11 +86,12 @@ def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
     opt = torch.optim.Adam([q, d6, t], lr=lr)
     trace = []
 
-    def current_kpts():
-        return hand.keypoints(q[None], d6[None], t[None])[0]   # (21,3)
+    def current_kpts(mats=None):
+        return hand.keypoints(q[None], d6[None], t[None], mats=mats)[0]   # (21,3)
 
     for it in range(n_iters + 1):
-        kp = current_kpts()
+        mats = hand.fk_local(q[None])          # one FK per iteration, shared below
+        kp = current_kpts(mats)
         V_r = torch.cat([kp, obj_pts], 0)
 
         L_im = e_im(L, V_r, V_s) if w["IM"] else V_r.new_zeros(())
@@ -101,7 +102,8 @@ def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
         # intersect the object -- it scored <1 mm while the real link surfaces
         # were 9 mm inside.  Eq. 12 is defined on surface points, so is this.
         pen_pts = hand.surface_points(q[None], d6[None], t[None],
-                                      n_per_link=pen_per_link, seed=pen_seed)[0]
+                                      n_per_link=pen_per_link, seed=pen_seed,
+                                      mats=mats)[0]
         L_pen, phi = e_pen(frame.obj, pen_pts)
         L_pen = L_pen if w["pen"] else V_r.new_zeros(())
         L_lim = e_lim(q, lower, upper) if w["lim"] else V_r.new_zeros(())
@@ -117,11 +119,13 @@ def retarget(hand, frame, weights=None, kappa=80.0, n_iters=350, lr=0.02,
 
         if it % log_every == 0 or it == n_iters:
             with torch.no_grad():
-                kp_d = current_kpts()
+                mats_d = hand.fk_local(q[None])
+                kp_d = current_kpts(mats_d)
                 tip_phi = frame.obj.sdf(kp_d[TIP_IDS])
                 phi_all = frame.obj.sdf(
                     hand.surface_points(q[None], d6[None], t[None],
-                                        n_per_link=pen_per_link, seed=pen_seed)[0])
+                                        n_per_link=pen_per_link, seed=pen_seed,
+                                        mats=mats_d)[0])
                 rec = dict(
                     iter=it,
                     losses=dict(IM=float(L_im), bone=float(L_bone), reg=float(L_reg),

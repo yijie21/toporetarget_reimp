@@ -187,7 +187,9 @@ class MeshObject:
         """
         kdt, cloud, nrm = self._cloud()
         pd = p.detach().cpu().numpy().reshape(-1, 3).astype(np.float64)
-        _, idx = kdt.query(pd, k=1, workers=-1)
+        # workers=-1 spawns a thread pool per call; for the ~1k points queried
+        # each iteration the spawn cost dwarfs the query itself.
+        _, idx = kdt.query(pd, k=1, workers=1)
         closest_t = torch.as_tensor(cloud[idx], dtype=p.dtype, device=p.device).view_as(p)
         n_t = torch.as_tensor(nrm[idx], dtype=p.dtype, device=p.device).view_as(p)
         return ((p - closest_t) * n_t).sum(-1)

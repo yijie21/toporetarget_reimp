@@ -1,0 +1,12 @@
+# Loss weights for the TopoRetarget objective.
+#
+# The paper does not publish its weights.  These are tuned on a held-out split
+# (see configs/tuning_split.yaml) and FROZEN for every number in the main table;
+# the same single set is used for every object, exactly as the paper claims for
+# its own parameters.  Positional terms are in mm^2 so the weights stay O(1).
+weights:
+  IM: 1.0        # E_IM   interaction-mesh Laplacian coordinates   (Stage 3)
+  bone: 8.0      # E_bone relative bone-direction                  (Stage 1)
+  reg: 0.4       # E_reg  smoothness / base prior                  (Stage 4)
+  pen: 25.0      # E_pen  penetration hinge on link surfaces       (Stage 4)
+  lim: 200.0     # E_lim  joint-limit barrier

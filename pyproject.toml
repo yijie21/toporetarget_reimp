@@ -16,6 +16,7 @@ dependencies = [
     "trimesh>=4.0",
     "pytorch_kinematics>=0.7",
     "pyyaml>=6.0",
+    "libigl>=2.5",
 ]
 
 [project.optional-dependencies]
