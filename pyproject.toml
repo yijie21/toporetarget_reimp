@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toporetarget-reimpl"
+version = "1.0.0"
+description = "Unofficial reimplementation of TopoRetarget (arXiv 2606.16272) on the Wuji Hand"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "torch>=2.0",
+    "trimesh>=4.0",
+    "pytorch_kinematics>=0.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+baselines = ["mujoco>=3.1", "mink>=0.0.4", "dex_retargeting>=0.4"]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["toporetarget*", "baselines*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

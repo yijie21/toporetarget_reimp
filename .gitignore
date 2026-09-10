@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+
+# generated viewer payloads for licence-restricted datasets (regenerate locally)
+viewer/data_contactpose_*.js
+viewer/data_grab_*.js
+
+# local dataset roots and intermediate results
+data/
+runs/
+*.npz
+!tests/fixtures/*.npz

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TopoRetarget — Human vs Robot Side-by-Side</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22cc;--ink:#e6edf3;--mut:#9aa7b4;--acc:#7c9cff;--acc2:#5be3c0;--bad:#ff6b6b;--human:#ffb454;--line:#2a3340}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+#app{position:fixed;inset:0}
+canvas{display:block}
+.panel{position:absolute;background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+#top{top:14px;left:14px;right:14px;display:flex;gap:10px;align-items:center;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden}
+#top h1{font-size:16px;margin:0 6px 0 0}
+#top h1 .g{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{background:#1c2330;color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600}
+.seg button.sel{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0a0e14;border-color:transparent}
+.sep{width:1px;height:26px;background:var(--line)}
+.lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.metric{margin-left:auto;display:flex;gap:16px;font-variant-numeric:tabular-nums}
+.metric b{display:block;font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.metric span{font-size:19px;font-weight:800}
+.good{color:var(--acc2)} .warn{color:var(--bad)}
+/* pane labels + divider (labels at the BOTTOM of each pane so the top bar can't cover them) */
+#divider{position:fixed;top:0;bottom:0;left:50%;width:1px;background:var(--line);pointer-events:none}
+.paneLabel{position:fixed;top:86px;transform:translateX(-50%);font-weight:800;letter-spacing:.5px;font-size:14px;pointer-events:none;text-shadow:0 1px 8px #000}
+#labL{left:25%;color:var(--human)}
+#labR{left:75%;color:var(--acc)}
+.paneSub{position:fixed;top:105px;transform:translateX(-50%);font-size:11.5px;color:var(--mut);pointer-events:none;text-shadow:0 1px 8px #000}
+#subL{left:25%} #subR{left:75%}
+#left{top:112px;left:14px;width:190px;font-size:13px}
+#left h3{margin:2px 0 8px;font-size:12px;color:var(--acc2);text-transform:uppercase;letter-spacing:.6px}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--mut)}
+.row input{accent-color:var(--acc)}
+.swatch{width:11px;height:11px;border-radius:3px;display:inline-block}
+#desc{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);color:var(--mut);font-size:12px;line-height:1.5}
+#desc b{color:var(--ink)}
+#srcinfo{margin-top:8px;color:#6b7785;font-size:11px}
+#bottom{bottom:14px;left:14px;right:14px;display:flex;align-items:center;gap:14px}
+#bottom button{background:linear-gradient(135deg,var(--acc),#6a86e0);color:#0a0e14;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer}
+#bottom button.ghost{background:#1c2330;color:var(--ink);border:1px solid var(--line)}
+#status{font-size:12.5px;color:var(--mut);min-width:140px;font-variant-numeric:tabular-nums}
+#status.opt{color:var(--acc2);font-weight:700}
+#scrub{flex:1;accent-color:var(--acc2)}
+#iterlab{font-variant-numeric:tabular-nums;color:var(--mut);min-width:120px;font-size:13px}
+#loss{position:absolute;right:14px;top:112px;width:280px}
+#loss h3{margin:2px 0 6px;font-size:12px;color:var(--acc2);text-transform:uppercase;letter-spacing:.6px}
+#lossc{width:100%;height:140px;display:block;background:#0a0e14;border-radius:8px}
+.legend{font-size:11px;color:var(--mut);display:flex;gap:9px;flex-wrap:wrap;margin-top:6px}
+.hint{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);color:#6b7785;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="divider"></div>
+<div id="labL" class="paneLabel">HUMAN · MANO</div><div id="subL" class="paneSub"></div>
+<div id="labR" class="paneLabel">ROBOT · Wuji</div><div id="subR" class="paneSub"></div>
+
+<div id="top" class="panel">
+  <h1>Topo<span class="g">Retarget</span></h1>
+  <span class="lbl">object</span><div class="seg" id="dataSeg"></div>
+  <div class="sep"></div>
+  <span class="lbl">ablation</span><div class="seg" id="abl"></div>
+  <div class="metric">
+    <div><b>contact</b><span id="mC" class="good">–</span></div>
+    <div><b>max penetration</b><span id="mP" class="good">–</span></div>
+  </div>
+</div>
+
+<div id="left" class="panel">
+  <h3>Show / hide</h3>
+  <label class="row"><input type="checkbox" id="tObj" checked><span class="swatch" style="background:#5be3c0"></span>Object</label>
+  <label class="row"><input type="checkbox" id="tAnchor" checked><span class="swatch" style="background:#3ddc97"></span>Object anchors</label>
+  <label class="row"><input type="checkbox" id="tKp"><span class="swatch" style="background:#ffd9a0"></span>Keypoints + skeleton</label>
+  <label class="row"><input type="checkbox" id="tEdges"><span class="swatch" style="background:#ff8e72"></span>Interaction mesh</label>
+  <div id="desc"></div>
+  <div id="srcinfo"></div>
+  <div style="margin-top:8px;color:#6b7785;font-size:11px;line-height:1.5">drag anywhere to orbit · scroll to zoom · right-drag to pan — both panes stay in sync</div>
+</div>
+
+<div id="loss" class="panel">
+  <h3>Loss curves (robot, this run)</h3>
+  <canvas id="lossc"></canvas>
+  <div class="legend"><span style="color:#7c9cff">■ E_IM</span><span style="color:#ff6b6b">■ pen</span><span style="color:#ffb454">■ bone</span><span style="color:#5be3c0">■ reg</span><span style="color:#9aa7b4">| iter</span></div>
+</div>
+
+<div id="bottom" class="panel">
+  <button id="replay">↻ Replay optimization</button>
+  <button id="play" class="ghost">⟲ Loop</button>
+  <span id="status">–</span>
+  <input type="range" id="scrub" min="0" max="25" value="25">
+  <div id="iterlab">iter –</div>
+</div>
+
+<script src="data_grab_cylinder.js"></script>
+<script src="data_grab_mug.js"></script>
+<script src="data_grab_sphere.js"></script>
+<script src="data_grab_binocular.js"></script>
+<script src="data_grab_camera.js"></script>
+<script src="data_grab_apple.js"></script>
+<script src="data_grab_wineglass.js"></script>
+<script src="data_grab_hammer.js"></script>
+<script src="data_grab_flute.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const REGISTRY = [
+  {v:"GRAB_CYLINDER",  label:"cylinder"},
+  {v:"GRAB_MUG",       label:"mug"},
+  {v:"GRAB_SPHERE",    label:"sphere"},
+  {v:"GRAB_BINOCULAR", label:"binoculars"},
+  {v:"GRAB_CAMERA",    label:"camera"},
+  {v:"GRAB_APPLE",     label:"apple"},
+  {v:"GRAB_WINEGLASS", label:"wineglass"},
+  {v:"GRAB_HAMMER",    label:"hammer"},
+  {v:"GRAB_FLUTE",     label:"flute"},
+];
+const DATASETS = REGISTRY.filter(r=>window[r.v]).map(r=>({label:r.label, D:window[r.v]}));
+const ABL_DESC = {
+  full:   "<b>Full method.</b> All terms active — robot fingertips reach the object with negligible penetration.",
+  no_IM:  "<b>No E_IM.</b> Nothing pulls the hand to the object's relative geometry — contact degrades.",
+  no_pen: "<b>No penetration term.</b> Fingertips may sink through the object.",
+  no_bone:"<b>No E_bone.</b> Contact ok but articulation less human-like.",
+  no_reg: "<b>No E_reg.</b> Tighter on one frame, less smooth for sequences.",
+};
+
+// ---------- renderer + ONE shared camera (guarantees sync) ----------
+const app=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight); app.appendChild(renderer.domElement);
+const cam=new THREE.PerspectiveCamera(45,(innerWidth/2)/innerHeight,0.005,20); cam.up.set(0,0,1);
+const ctrl=new OrbitControls(cam,renderer.domElement);
+
+function mkScene(){
+  const s=new THREE.Scene(); s.background=new THREE.Color(0x0d1117);
+  s.add(new THREE.AmbientLight(0xffffff,0.66));
+  const d=new THREE.DirectionalLight(0xffffff,1.05); d.position.set(0.3,-0.4,0.6); s.add(d);
+  const d2=new THREE.DirectionalLight(0x88aaff,0.5); d2.position.set(-0.4,0.3,0.2); s.add(d2);
+  return s;
+}
+const sceneL=mkScene(), sceneR=mkScene();   // L=human, R=robot
+
+let D, run="full", idx=99, playing=false, content=null;
+const m4=new THREE.Matrix4();
+function clear(arr){ if(!arr)return; for(const o of arr){o.parent&&o.parent.remove(o);o.geometry&&o.geometry.dispose&&o.geometry.dispose();} }
+
+function objGeom(){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(D.object.vertices.flat(),3));
+  g.setIndex(D.object.faces.flat()); g.computeVertexNormals(); return g;
+}
+function anchorsObj(){
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(D.obj_pts.flat(),3));
+  return new THREE.Points(g,new THREE.PointsMaterial({color:0x3ddc97,size:0.005}));
+}
+function skel(kpts,color){
+  const seg=[];for(const [a,b] of D.bones){seg.push(...kpts[a],...kpts[b]);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(seg,3));
+  return new THREE.LineSegments(g,new THREE.LineBasicMaterial({color}));
+}
+
+function loadDataset(ds){
+  D=ds.D; run="full";
+  if(content){ clear(content.all); }
+  content={all:[], objMeshes:[], anchorPts:[], skels:[], edges:null, linkMeshes:{}, rkSpheres:[], hkSpheres:[]};
+  const reg=(o,scene)=>{scene.add(o);content.all.push(o);return o;};
+
+  // object in BOTH panes (shared geometry, separate meshes)
+  const og=objGeom();
+  const omat=new THREE.MeshStandardMaterial({color:0x5be3c0,transparent:true,opacity:0.28,roughness:0.6,side:THREE.DoubleSide});
+  content.objMeshes=[reg(new THREE.Mesh(og,omat),sceneL),reg(new THREE.Mesh(og,omat),sceneR)];
+  content.anchorPts=[reg(anchorsObj(),sceneL),reg(anchorsObj(),sceneR)];
+
+  // ---- LEFT: human MANO mesh + skeleton + kpts + interaction edges ----
+  if(D.human_mesh){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(D.human_mesh.vertices.flat(),3));
+    g.setIndex(D.human_mesh.faces.flat()); g.computeVertexNormals();
+    reg(new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0xffb454,roughness:0.5,metalness:0.0,side:THREE.DoubleSide})),sceneL);
+  }
+  content.skels=[reg(skel(D.human_kpts,0xffd9a0),sceneL)];
+  const hkMat=new THREE.MeshStandardMaterial({color:0xffd9a0,roughness:0.4});
+  for(const p of D.human_kpts){const s=reg(new THREE.Mesh(new THREE.SphereGeometry(0.004,8,8),hkMat),sceneL);s.position.set(p[0],p[1],p[2]);content.hkSpheres.push(s);}
+  // interaction edges (source verts) on the human pane
+  const sv=[...D.human_kpts,...D.obj_pts], ec={hh:[0.49,0.61,1.0],oo:[0.2,0.5,0.4],ho:[1.0,0.56,0.45]};
+  const pos=[],col=[]; for(const [i,j,k] of D.edges){pos.push(...sv[i],...sv[j]);const c=ec[k];col.push(...c,...c);}
+  const eg=new THREE.BufferGeometry(); eg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); eg.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  content.edges=reg(new THREE.LineSegments(eg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.5})),sceneL);
+
+  // ---- RIGHT: robot link meshes + robot kpts ----
+  const robotMat=new THREE.MeshStandardMaterial({color:0x9fb2d4,roughness:0.45,metalness:0.35});
+  for(const [name,m] of Object.entries(D.robot_meshes)){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(m.vertices.flat(),3));
+    g.setIndex(m.faces.flat()); g.computeVertexNormals();
+    const mesh=reg(new THREE.Mesh(g,robotMat),sceneR); mesh.matrixAutoUpdate=false; content.linkMeshes[name]=mesh;
+  }
+  const rkMat=new THREE.MeshStandardMaterial({color:0x7c9cff,roughness:0.4});
+  const rsk=reg(skel(D.runs[run].trace[idx>=0?Math.min(idx,D.runs[run].trace.length-1):0].kpts,0x9fb2d4),sceneR);
+  content.skels.push(rsk); content.robotSkel=rsk;
+  for(let i=0;i<21;i++){content.rkSpheres.push(reg(new THREE.Mesh(new THREE.SphereGeometry(0.0045,8,8),rkMat),sceneR));}
+
+  applyToggles();
+
+  // frame camera on object centroid
+  let c=[0,0,0]; for(const p of D.object.vertices){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];}
+  const n=D.object.vertices.length; c=c.map(v=>v/n);
+  ctrl.target.set(c[0],c[1],c[2]); cam.position.set(c[0]+0.26,c[1]-0.26,c[2]+0.13); ctrl.update();
+
+  document.getElementById('subL').textContent = `${D.meta.source.obj} · ${D.meta.source.seq} f${D.meta.source.frame}`;
+  document.getElementById('subR').textContent = `Wuji hand · ${D.meta.ablations.length} ablations`;
+  document.getElementById('srcinfo').textContent = `GRAB ${D.meta.source.seq} · frame ${D.meta.source.frame}`;
+  buildAbl();
+  document.getElementById('scrub').max=D.runs[run].trace.length-1;
+  playOnce();   // auto-play the optimization flow: initial pose -> converged
+}
+
+function updateStatus(){
+  const tr=D.runs[run].trace,last=tr.length-1,st=document.getElementById('status');
+  if(playing==='once'||playing==='loop'){st.textContent=`optimizing… iter ${tr[idx].iter}`;st.className='opt';}
+  else if(idx>=last){st.textContent='converged ✓';st.className='';}
+  else {st.textContent=`iter ${tr[idx].iter} (paused)`;st.className='';}
+}
+function playOnce(){
+  playing='once'; const pb=document.getElementById('play'); pb.textContent='⟲ Loop'; pb.classList.add('ghost');
+  setFrame(0);
+}
+
+function setFrame(i){
+  const tr=D.runs[run].trace; idx=Math.max(0,Math.min(tr.length-1,i)); const rec=tr[idx];
+  for(const [name,mesh] of Object.entries(content.linkMeshes)){
+    const a=rec.link_T[name]; if(!a)continue;
+    m4.set(a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15]);
+    mesh.matrix.copy(m4);
+  }
+  for(let k=0;k<21;k++){const p=rec.kpts[k];content.rkSpheres[k].position.set(p[0],p[1],p[2]);}
+  // robot skeleton update
+  if(content.robotSkel){const pos=content.robotSkel.geometry.attributes.position.array;let o=0;for(const[a,b]of D.bones){const A=rec.kpts[a],B=rec.kpts[b];pos[o++]=A[0];pos[o++]=A[1];pos[o++]=A[2];pos[o++]=B[0];pos[o++]=B[1];pos[o++]=B[2];}content.robotSkel.geometry.attributes.position.needsUpdate=true;}
+  const cm=rec.contact_mm,pm=rec.max_pen_mm;
+  const eC=document.getElementById('mC'),eP=document.getElementById('mP');
+  eC.textContent=cm.toFixed(2)+' mm';eC.className=cm<10?'good':'warn';
+  eP.textContent=pm.toFixed(2)+' mm';eP.className=pm<3?'good':'warn';
+  document.getElementById('iterlab').textContent=`iter ${rec.iter} / ${tr[tr.length-1].iter}`;
+  document.getElementById('scrub').value=idx; drawLoss(); updateStatus();
+}
+
+function applyToggles(){
+  const ob=document.getElementById('tObj').checked, an=document.getElementById('tAnchor').checked,
+        kp=document.getElementById('tKp').checked, ed=document.getElementById('tEdges').checked;
+  content.objMeshes.forEach(o=>o.visible=ob);
+  content.anchorPts.forEach(o=>o.visible=an);
+  content.skels.forEach(o=>o.visible=kp);
+  content.hkSpheres.forEach(o=>o.visible=kp); content.rkSpheres.forEach(o=>o.visible=kp);
+  content.edges.visible=ed;
+}
+
+const lc=document.getElementById('lossc'),lx=lc.getContext('2d');
+function drawLoss(){
+  const tr=D.runs[run].trace,W=lc.width=lc.clientWidth*2,H=lc.height=280;
+  lx.setTransform(1,0,0,1,0,0);lx.clearRect(0,0,W,H);lx.scale(2,2);
+  const w=W/2,h=H/2,pad=6,keys=[["IM","#7c9cff"],["pen","#ff6b6b"],["bone","#ffb454"],["reg","#5be3c0"]];
+  let vmin=1e9,vmax=-1e9;for(const r of tr)for(const[k]of keys){const v=Math.max(r.losses[k],1e-4);vmin=Math.min(vmin,v);vmax=Math.max(vmax,v);}
+  const ly=v=>{const t=(Math.log10(Math.max(v,1e-4))-Math.log10(vmin))/(Math.log10(vmax)-Math.log10(vmin)+1e-9);return h-pad-t*(h-2*pad);};
+  const xp=i=>pad+i/(tr.length-1)*(w-2*pad);
+  for(const[k,c]of keys){lx.strokeStyle=c;lx.lineWidth=1.5;lx.beginPath();tr.forEach((r,i)=>{const X=xp(i),Y=ly(Math.max(r.losses[k],1e-4));i?lx.lineTo(X,Y):lx.moveTo(X,Y);});lx.stroke();}
+  lx.strokeStyle="#9aa7b4";lx.lineWidth=1;lx.beginPath();lx.moveTo(xp(idx),pad);lx.lineTo(xp(idx),h-pad);lx.stroke();
+}
+
+function buildAbl(){
+  const box=document.getElementById('abl');box.innerHTML="";
+  D.meta.ablations.forEach(name=>{
+    const b=document.createElement('button');b.textContent=name.replace('_',' ');
+    if(name===run)b.classList.add('sel');
+    b.onclick=()=>{run=name;[...box.children].forEach(c=>c.classList.toggle('sel',c===b));
+      document.getElementById('scrub').max=D.runs[run].trace.length-1;
+      document.getElementById('desc').innerHTML=ABL_DESC[name]||"";playOnce();};
+    box.appendChild(b);
+  });
+  document.getElementById('desc').innerHTML=ABL_DESC.full;
+}
+
+// data switcher
+const dseg=document.getElementById('dataSeg');
+DATASETS.forEach((ds,i)=>{const b=document.createElement('button');b.textContent=ds.label;if(i===0)b.classList.add('sel');
+  b.onclick=()=>{[...dseg.children].forEach(c=>c.classList.toggle('sel',c===b));playing=false;document.getElementById('play').textContent='▶ Play';loadDataset(ds);};
+  dseg.appendChild(b);});
+
+document.getElementById('scrub').oninput=e=>{playing=false;document.getElementById('play').textContent='⟲ Loop';setFrame(+e.target.value);};
+document.getElementById('replay').onclick=()=>playOnce();
+document.getElementById('play').onclick=function(){
+  if(playing==='loop'){playing=false;this.textContent='⟲ Loop';}
+  else{playing='loop';this.textContent='❚❚ Stop';}
+  updateStatus();
+};
+for(const id of ['tObj','tAnchor','tKp','tEdges'])document.getElementById(id).onchange=applyToggles;
+
+function resize(){renderer.setSize(innerWidth,innerHeight);cam.aspect=(innerWidth/2)/innerHeight;cam.updateProjectionMatrix();}
+addEventListener('resize',resize);
+
+let last=0;
+function loop(t){
+  requestAnimationFrame(loop);
+  if((playing==='once'||playing==='loop')&&t-last>70){
+    const tr=D.runs[run].trace;
+    if(playing==='once'){ if(idx>=tr.length-1){playing=false;updateStatus();} else setFrame(idx+1); }
+    else setFrame((idx+1)%tr.length);
+    last=t;
+  }
+  ctrl.update();
+  const W=innerWidth,H=innerHeight,hw=Math.floor(W/2);
+  renderer.setScissorTest(true);
+  renderer.setViewport(0,0,hw,H);renderer.setScissor(0,0,hw,H);renderer.render(sceneL,cam);
+  renderer.setViewport(hw,0,W-hw,H);renderer.setScissor(hw,0,W-hw,H);renderer.render(sceneR,cam);
+}
+if(DATASETS.length){ loadDataset(DATASETS[0]); resize(); loop(0); }
+else document.getElementById('top').insertAdjacentHTML('beforeend','<span style="color:#ff6b6b">No data — run the generation steps</span>');
+</script>
+</body>
+</html>

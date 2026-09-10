@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TopoRetarget — Visual Explainer</title>
+
+<!-- MathJax for pretty equations -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script" async></script>
+
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --ink:#e6edf3; --mut:#9aa7b4;
+  --acc:#7c9cff; --acc2:#5be3c0; --warn:#ff8e72; --good:#5be3c0; --bad:#ff6b6b;
+  --line:#2a3340; --human:#ffb454; --robot:#7c9cff; --obj:#5be3c0;
+  --radius:16px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.65; font-size:17px;
+}
+a{color:var(--acc)}
+.wrap{max-width:920px; margin:0 auto; padding:0 22px}
+
+/* ---- Top nav ---- */
+nav{
+  position:sticky; top:0; z-index:50; backdrop-filter:blur(10px);
+  background:rgba(13,17,23,.82); border-bottom:1px solid var(--line);
+}
+nav .wrap{display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:10px 22px; font-size:13.5px}
+nav b{color:var(--acc2); margin-right:10px; letter-spacing:.5px}
+nav a{color:var(--mut); text-decoration:none; padding:4px 9px; border-radius:8px}
+nav a:hover{background:var(--panel2); color:var(--ink)}
+
+/* ---- Hero ---- */
+header.hero{
+  padding:70px 0 50px; text-align:center;
+  background:radial-gradient(900px 360px at 50% -8%, rgba(124,156,255,.20), transparent 70%);
+}
+.kicker{color:var(--acc2); font-weight:700; letter-spacing:2px; font-size:12.5px; text-transform:uppercase}
+.hero h1{font-size:clamp(30px,5vw,52px); line-height:1.07; margin:14px 0 8px; letter-spacing:-1px}
+.hero h1 .grad{background:linear-gradient(90deg,var(--acc),var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero p.sub{color:var(--mut); max-width:680px; margin:6px auto 0; font-size:18px}
+.authors{color:#6b7785; font-size:13.5px; margin-top:18px}
+.badge{display:inline-block; margin-top:18px; padding:7px 14px; border:1px solid var(--line); border-radius:999px; color:var(--mut); font-size:13px}
+
+/* ---- Sections ---- */
+section{padding:46px 0; border-top:1px solid var(--line)}
+h2{font-size:28px; letter-spacing:-.5px; margin:0 0 6px; display:flex; align-items:center; gap:12px}
+h2 .num{font-size:14px; color:var(--bg); background:linear-gradient(135deg,var(--acc),var(--acc2)); width:30px; height:30px; min-width:30px; border-radius:9px; display:grid; place-items:center; font-weight:800}
+h3{font-size:19px; margin:26px 0 6px; color:var(--ink)}
+.lead{color:var(--mut); font-size:18px; margin-top:2px}
+
+/* ---- Cards / callouts ---- */
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; margin:18px 0}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+@media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
+
+.plain{border-left:4px solid var(--acc2); background:linear-gradient(90deg,rgba(91,227,192,.08),transparent); border-radius:10px; padding:14px 18px; margin:14px 0}
+.plain b{color:var(--acc2)}
+.why{border-left:4px solid var(--human); background:linear-gradient(90deg,rgba(255,180,84,.08),transparent); border-radius:10px; padding:14px 18px; margin:14px 0}
+.why b{color:var(--human)}
+.note{color:var(--mut); font-size:14.5px}
+
+.eq{background:#0a0e14; border:1px solid var(--line); border-radius:12px; padding:6px 18px; margin:14px 0; overflow-x:auto}
+.eqtag{display:inline-block; font-size:12px; color:var(--acc); border:1px solid var(--line); border-radius:6px; padding:1px 8px; margin-bottom:-6px; margin-top:8px}
+
+/* symbol legend chips */
+.legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+.chip{font-size:13.5px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 10px}
+.chip b{color:var(--acc2)}
+
+/* dots */
+.dot{display:inline-block; width:11px; height:11px; border-radius:50%; vertical-align:middle; margin-right:6px}
+.d-human{background:var(--human)} .d-robot{background:var(--robot)} .d-obj{background:var(--obj)}
+
+/* canvas figure */
+.figbox{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:18px 0}
+.figbox canvas{width:100%; display:block; border-radius:10px; background:#0a0e14; touch-action:none}
+.caption{color:var(--mut); font-size:14px; margin-top:10px}
+.ctrls{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px}
+button.btn{
+  background:linear-gradient(135deg,var(--acc),#6a86e0); color:#0a0e14; border:0; font-weight:700;
+  padding:9px 16px; border-radius:10px; cursor:pointer; font-size:14px;
+}
+button.btn:hover{filter:brightness(1.08)}
+button.btn.ghost{background:var(--panel2); color:var(--ink); border:1px solid var(--line)}
+.slider{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--mut)}
+input[type=range]{accent-color:var(--acc); width:160px}
+
+/* steps */
+.steps{counter-reset:s; margin-top:10px}
+.step{position:relative; padding:14px 16px 14px 56px; background:var(--panel); border:1px solid var(--line); border-radius:12px; margin:12px 0}
+.step::before{counter-increment:s; content:counter(s); position:absolute; left:14px; top:14px; width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#0a0e14; font-weight:800; display:grid; place-items:center}
+.step b{color:var(--acc2)}
+
+/* results bars */
+.bars{display:flex; flex-direction:column; gap:14px; margin-top:8px}
+.bar{display:grid; grid-template-columns:130px 1fr; gap:12px; align-items:center; font-size:14px}
+.bar .name{color:var(--mut); text-align:right}
+.track{background:var(--panel2); border-radius:8px; height:30px; position:relative; overflow:hidden; border:1px solid var(--line)}
+.fill{height:100%; width:0; border-radius:8px; transition:width 1.2s cubic-bezier(.2,.8,.2,1); display:flex; align-items:center; justify-content:flex-end; padding-right:9px; font-weight:700; color:#0a0e14; font-size:13px}
+.fill.ours{background:linear-gradient(90deg,var(--acc2),var(--acc))}
+.fill.base{background:linear-gradient(90deg,#475063,#5b6478); color:var(--ink)}
+
+table{width:100%; border-collapse:collapse; margin-top:12px; font-size:14.5px}
+th,td{padding:9px 11px; border-bottom:1px solid var(--line); text-align:left}
+th{color:var(--acc2); font-size:13px; text-transform:uppercase; letter-spacing:.5px}
+td.win{color:var(--good); font-weight:700}
+tr:hover td{background:var(--panel)}
+
+.tldr{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:18px}
+@media(max-width:720px){.tldr{grid-template-columns:1fr 1fr}}
+.stat{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; text-align:center}
+.stat .big{font-size:30px; font-weight:800; background:linear-gradient(90deg,var(--acc),var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent}
+.stat .lbl{color:var(--mut); font-size:13px; margin-top:4px}
+
+footer{padding:50px 0 80px; color:#6b7785; font-size:14px; text-align:center; border-top:1px solid var(--line)}
+.pill{display:inline-block; font-size:12px; color:var(--acc2); border:1px solid var(--line); padding:2px 9px; border-radius:999px; margin-left:6px}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <b>TopoRetarget</b>
+  <a href="#big">TL;DR</a>
+  <a href="#problem">Problem</a>
+  <a href="#setup">Setup</a>
+  <a href="#s1">① Bones</a>
+  <a href="#s2">② Mesh</a>
+  <a href="#s3">③ Laplacian</a>
+  <a href="#s4">④ Optimize</a>
+  <a href="#rl">RL</a>
+  <a href="#results">Results</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">Visual paper explainer · arXiv 2606.16272</div>
+  <h1>Teaching robot hands by<br><span class="grad">copying the interaction, not the pose</span></h1>
+  <p class="sub">A friendly, animated walk-through of <b>TopoRetarget: Interaction-Preserving Retargeting for Dexterous Manipulation</b> — every equation translated into plain English.</p>
+  <div class="authors">Jielin Wu · Shenzhe Yao · Guanqi He · Xiaohan Liu · Zhaoqing Zeng · Xiangrui Jiang · Han Yang · Wentao Zhang · Hang Zhao</div>
+  <div class="badge">⏱️ ~12 min read · scroll-driven animations · MathJax equations</div>
+</div></header>
+
+<!-- ============ BIG PICTURE ============ -->
+<section id="big"><div class="wrap">
+  <h2><span class="num">0</span> The one-sentence idea</h2>
+  <div class="plain" style="font-size:18px">
+    <b>When you copy a human hand demo onto a robot hand, don't just match finger angles — match the <i>geometric relationship</i> between the fingers and the object.</b>
+    That relationship (who touches what, from which direction, at what distance) is the thing that actually makes the manipulation work.
+  </div>
+
+  <p class="lead">Why we need this at all:</p>
+  <p>Robots learn dexterous skills (spinning a pen, reorienting a cube) much faster if you give them a <b>reference motion</b> to imitate. Humans are a great source of reference motions — we just record someone doing the task with a motion-capture glove. But a human hand and a robot hand have different shapes, sizes, and joints (the <b>"embodiment gap"</b>). Naively copying the motion produces broken references: fingers pass <i>through</i> the object, contacts slip off, grasps become physically impossible. Train on garbage references → get a garbage policy. TopoRetarget fixes the references.</p>
+
+  <div class="tldr">
+    <div class="stat"><div class="big">7.71<span style="font-size:16px">mm</span></div><div class="lbl">Contact precision<br>(vs 14.1 mm baselines)</div></div>
+    <div class="stat"><div class="big">+40.6</div><div class="lbl">pts Pen-Spin RL<br>success vs baseline</div></div>
+    <div class="stat"><div class="big">1.07<span style="font-size:16px">mm</span></div><div class="lbl">Max penetration<br>(vs 11–20 mm)</div></div>
+    <div class="stat"><div class="big">4.7<span style="font-size:16px">ms</span></div><div class="lbl">Per frame<br>(real-time)</div></div>
+  </div>
+</div></section>
+
+<!-- ============ PROBLEM ============ -->
+<section id="problem"><div class="wrap">
+  <h2><span class="num">1</span> The problem, visually</h2>
+  <p class="lead">A human hand pinches a pen. A robot hand has fewer/longer/wider fingers. What goes wrong when you copy the pose blindly?</p>
+
+  <div class="figbox">
+    <canvas id="cvProblem" height="340"></canvas>
+    <div class="ctrls">
+      <button class="btn ghost" id="pbHuman">Show human demo</button>
+      <button class="btn" id="pbNaive">Naive copy (broken)</button>
+      <button class="btn" id="pbTopo">TopoRetarget (fixed)</button>
+    </div>
+    <div class="caption" id="probCap">The <span class="dot d-human"></span><b>human</b> hand grips the <span class="dot d-obj"></span>pen with clean fingertip contacts. Click the buttons to see what a robot hand does.</div>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><b style="color:var(--bad)">⚠ Penetration</b><br><span class="note">Robot fingers sink <i>into</i> the object — physically impossible, so simulation/RL can't reproduce it.</span></div>
+    <div class="card"><b style="color:var(--bad)">⚠ Contact drift</b><br><span class="note">The fingertip that should touch the pen ends up floating in mid-air next to it.</span></div>
+    <div class="card"><b style="color:var(--bad)">⚠ Invalid grasp</b><br><span class="note">The set of contacts no longer forms a stable hold — the object would just fall.</span></div>
+  </div>
+  <p class="note">(This is Figure 3 in the paper: the four classic retargeting artifacts that TopoRetarget is designed to avoid.)</p>
+</div></section>
+
+<!-- ============ SETUP / NOTATION ============ -->
+<section id="setup"><div class="wrap">
+  <h2><span class="num">2</span> The setup &amp; notation</h2>
+  <p class="lead">Before any math, here's what goes in and what comes out. Don't fear the symbols — each is just a labeled box of numbers.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">📥 Inputs (the human demo)</h3>
+      <div class="legend">
+        <span class="chip"><b>$P^h_{1:N}$</b> — human-hand trajectory: 21 finger keypoints, for each of $N$ frames</span>
+        <span class="chip"><b>$q^o_{1:N}$</b> — object pose (where the pen/cube is) per frame</span>
+        <span class="chip"><b>$\mathcal{M}$</b> — the 3-D mesh (shape) of the object</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">📤 Outputs (the robot reference)</h3>
+      <div class="legend">
+        <span class="chip"><b>$q^{base}_{1:N}$</b> — robot wrist position &amp; orientation per frame</span>
+        <span class="chip"><b>$q^{\theta}_{1:N}$</b> — robot finger joint angles per frame</span>
+        <span class="chip"><b>$q^r_t=(q^{base}_t,\,q^{\theta}_t)$</b> — the full robot pose at frame $t$</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="plain"><b>Read it like this:</b> the human "showed" the motion (<span class="dot d-human"></span>inputs). We must solve for the robot configuration $q^r$ at every frame (<span class="dot d-robot"></span>outputs) so the robot's hand–object interaction <i>looks and behaves</i> like the human's. The whole paper is one big optimization that finds the best $q^r_t$.</p></div>
+
+  <p>The method runs in <b>four stages</b>. We'll take them one at a time, each with its own animation and equation.</p>
+  <div class="steps">
+    <div class="step"><b>Bone-direction init</b> — a quick first guess so fingers point the right way.</div>
+    <div class="step"><b>Interaction mesh</b> — build a graph connecting fingers + object into one shape.</div>
+    <div class="step"><b>Laplacian optimization</b> — the core: preserve <i>local relative geometry</i>.</div>
+    <div class="step"><b>Constrained solve</b> — add kinematic limits &amp; no-penetration rules, then RL-track it.</div>
+  </div>
+</div></section>
+
+<!-- ============ STAGE 1: BONES ============ -->
+<section id="s1"><div class="wrap">
+  <h2><span class="num">3</span> Stage ① — Bone-direction initialization</h2>
+  <p class="lead">First, a rough warm-start: make each robot finger <i>point</i> like the matching human finger.</p>
+
+  <p>A "bone" is the segment from one finger keypoint to the next. Its <b>direction</b> $d_k$ is the unit arrow pointing along it. We want the robot's bone directions to match the human's — but cleverly, we match the <i>difference between neighbouring bones</i> (how much the finger bends at each knuckle), which is what survives differences in hand size.</p>
+
+  <span class="eqtag">Bone-direction mismatch energy</span>
+  <div class="eq">$$E_{\text{bone}}(q)=\sum_{(k,l)\in\mathcal{A}_B}\big\lVert\,\big(d^r_k(q)-d^r_l(q)\big)-\big(d^s_k-d^s_l\big)\,\big\rVert_2^2$$</div>
+
+  <div class="plain"><b>In plain English:</b> for every pair of adjacent bones $(k,l)$ along a finger, compare the <i>relative bend</i> of the robot ($d^r_k-d^r_l$) to the <i>relative bend</i> of the source human ($d^s_k-d^s_l$). Square the gap, add them all up. Minimizing this = "bend your knuckles the same way the human did."</p>
+
+  <div class="legend">
+    <span class="chip"><b>$d^s_k$</b> = source (human) bone direction, in a wrist-centred frame</span>
+    <span class="chip"><b>$d^r_k(q)$</b> = robot bone direction (depends on joints $q$)</span>
+    <span class="chip"><b>$\mathcal{A}_B$</b> = set of adjacent bone pairs along each finger</span>
+    <span class="chip"><b>$\lVert\cdot\rVert_2^2$</b> = squared length = "how far off"</span>
+  </div>
+
+  <h3>Plus a smoothness term, frame by frame</h3>
+  <span class="eqtag">Per-frame warm start</span>
+  <div class="eq">$$\tilde{q}^r_t:=\arg\min_q\;\lambda_{\text{warm}}\,E_{\text{bone}}(q)\;+\;\lambda_{\text{smooth}}\,\lVert q-\tilde{q}^r_{t-1}\rVert_2^2$$</div>
+  <div class="plain"><b>In plain English:</b> pick the robot pose $\tilde q^r_t$ that (a) matches the human's finger bends <i>and</i> (b) doesn't jump too far from the previous frame $\tilde q^r_{t-1}$ — so the motion stays smooth, not jittery. $\lambda_{\text{warm}}$ and $\lambda_{\text{smooth}}$ just trade off these two wishes.</p></div>
+  <div class="why"><b>Why this stage exists:</b> the real optimization (Stage 3) is non-convex. Starting from a sensible, smooth guess keeps it from landing in a weird local solution.</div>
+</div></section>
+
+<!-- ============ STAGE 2: MESH ============ -->
+<section id="s2"><div class="wrap">
+  <h2><span class="num">4</span> Stage ② — Build the interaction mesh</h2>
+  <p class="lead">The key trick: treat the hand <i>and</i> the object as <b>one connected shape</b>.</p>
+
+  <p>We collect all the points that matter — the 21 hand keypoints <b>and</b> a sprinkle of points sampled on the object's surface — into one big vertex list. Then we connect them with edges (via <b>Delaunay tetrahedralization</b>, a standard way to triangulate points in 3-D). The result is a mesh whose edges literally span the gap between fingers and object. That spanning is what encodes "interaction."</p>
+
+  <div class="grid2">
+    <div class="card"><span class="eqtag">Source (human) vertices</span>
+      <div class="eq">$$V^s_t=[\,P^h_t;\;O_t\,]$$</div>
+      <span class="note">Stack the <span class="dot d-human"></span>21 human keypoints $P^h_t$ on top of <span class="dot d-obj"></span>$O_t$, the $N_o$ object-surface samples.</span>
+    </div>
+    <div class="card"><span class="eqtag">Robot vertices</span>
+      <div class="eq">$$V^r_t(q)=[\,P^r_t(q);\;O_t\,]$$</div>
+      <span class="note">Same idea, but the hand part $P^r_t(q)$ is the <span class="dot d-robot"></span>robot's keypoints (they move with joints $q$). The object part $O_t$ is identical.</span>
+    </div>
+  </div>
+
+  <span class="eqtag">Two graphs, one shared wiring</span>
+  <div class="eq">$$G^s_t=(V^s_t,\;\mathcal{I}_t)\qquad\qquad G^r_t(q)=(V^r_t(q),\;\mathcal{I}_t)$$</div>
+  <div class="plain"><b>In plain English:</b> compute the edge set $\mathcal{I}_t$ <i>once</i> from the human mesh, then <b>reuse the exact same edges</b> for the robot. So vertex #5 connects to vertex #12 in both graphs. Now the human and robot meshes are directly comparable, vertex-for-vertex and edge-for-edge — that's the whole point. ($N_v = 21 + N_o$ total vertices.)</p></div>
+
+  <div class="figbox">
+    <canvas id="cvMesh" height="360"></canvas>
+    <div class="ctrls">
+      <button class="btn" id="meshBuild">Build the mesh ▸</button>
+      <button class="btn ghost" id="meshReset">Reset</button>
+    </div>
+    <div class="caption">Watch it assemble: first the <span class="dot d-human"></span>hand keypoints and <span class="dot d-obj"></span>object samples appear, then edges connect them into a single hand-and-object mesh. The cross-edges (faint) are the ones that capture <i>where the hand meets the object</i>.</div>
+  </div>
+</div></section>
+
+<!-- ============ STAGE 3: LAPLACIAN ============ -->
+<section id="s3"><div class="wrap">
+  <h2><span class="num">5</span> Stage ③ — Laplacian coordinates <span class="pill">the heart of the paper</span></h2>
+  <p class="lead">Instead of asking "is each point in the same <i>absolute</i> place?", we ask "is each point in the same place <i>relative to its neighbours</i>?"</p>
+
+  <h3>What is a Laplacian coordinate?</h3>
+  <p>For a vertex $v_i$, take the weighted average position of its neighbours, then draw the arrow from that average to $v_i$. That arrow — call it $\Delta_i$ — describes the vertex's <b>local shape</b>: how it sticks out from the crowd around it. It's translation-free and captures relative structure.</p>
+
+  <div class="figbox">
+    <canvas id="cvLap" height="380"></canvas>
+    <div class="ctrls">
+      <span class="slider">Drag the orange point, or press play:</span>
+      <button class="btn" id="lapPlay">▶ Animate match</button>
+      <button class="btn ghost" id="lapReset">Reset</button>
+    </div>
+    <div class="caption">Left = <span class="dot d-human"></span>source. Right = <span class="dot d-robot"></span>robot (different layout). The bold arrow is the Laplacian coordinate $\Delta$ of the highlighted vertex. <b>Optimization moves the robot's vertices until its arrows match the source's arrows</b> — preserving local interaction even though absolute positions differ. Drag the big orange point to feel how $\Delta$ depends on neighbours.</div>
+  </div>
+
+  <h3>The math behind the arrow</h3>
+  <p>Closer neighbours should matter more, so each edge gets a distance-based weight (an exponential falloff), then we normalize the weights around each vertex so they sum to 1.</p>
+
+  <span class="eqtag">Distance-aware edge weights</span>
+  <div class="eq">$$\tilde{w}_{ij,t}=\exp\!\big(-\kappa\,\lVert v^s_{i,t}-v^s_{j,t}\rVert_2\big)\qquad
+  w_{ij,t}=\frac{\tilde{w}_{ij,t}}{\sum_{j'\in\mathcal{N}_t(i)}\tilde{w}_{ij',t}}$$</div>
+  <div class="legend">
+    <span class="chip"><b>$\kappa$</b> = decay rate — bigger $\kappa$ = "only very close neighbours count"</span>
+    <span class="chip"><b>$\mathcal{N}_t(i)$</b> = the neighbours of vertex $i$</span>
+    <span class="chip">Right equation just rescales weights to sum to 1</span>
+  </div>
+
+  <span class="eqtag">Laplacian coordinate (the arrow)</span>
+  <div class="eq">$$\Delta_t(V)_i=\sum_{j\in\mathcal{N}_t(i)}w_{ij,t}\,(v_i-v_j)$$</div>
+  <div class="plain"><b>In plain English:</b> $\Delta_i$ = vertex $i$ minus the weighted average of its neighbours = "how far, and in which direction, this point pokes out from its local group." Two shapes with the <i>same</i> $\Delta$ for every vertex have the <i>same local structure</i>, regardless of overall position, rotation, or size differences.</p></div>
+
+  <span class="eqtag">Interaction-mesh energy — the objective to minimize</span>
+  <div class="eq">$$E_{\text{IM}}(q)=\frac{1}{N_v}\sum_{i=1}^{N_v}\big\lVert\,\Delta_t\big(V^r_t(q)\big)_i-\Delta_t\big(V^s_t\big)_i\,\big\rVert_2^2$$</div>
+  <div class="plain"><b>In plain English:</b> for every vertex, compare the robot's local-shape arrow to the human's local-shape arrow. Square the differences, average over all $N_v$ vertices. <b>Driving $E_{\text{IM}}$ to zero = the robot's hand-object interaction has the same local geometry as the human's</b> — finger-to-object distances and directions preserved, even on a totally different hand.</p></div>
+
+  <div class="why"><b>Why this beats matching poses or fingertips directly:</b> a fingertip-matching method says "put the robot tip exactly where the human tip was" — but the robot finger is a different length, so that forces penetration or floating. The Laplacian objective instead says "keep the tip the same <i>relative</i> distance/direction from the object surface," which adapts gracefully across hand shapes. That's why one parameter set works across different objects and even different robot hands (Figure 5).</div>
+</div></section>
+
+<!-- ============ STAGE 4: OPTIMIZE ============ -->
+<section id="s4"><div class="wrap">
+  <h2><span class="num">6</span> Stage ④ — The full constrained solve</h2>
+  <p class="lead">Combine everything, then add two hard rules: stay within the robot's joint limits, and <b>do not penetrate the object</b>.</p>
+
+  <span class="eqtag">Complete per-frame optimization</span>
+  <div class="eq">$$\big(q^{r,*}_t,\,s^*_t\big)=\arg\min_{q,\,s}\;\;
+  \lambda_{\text{IM}}\,E_{\text{IM}}(q)\;+\;\lambda_{\text{bone}}\,E_{\text{bone}}(q)\;+\;E_{\text{reg}}(q;q^{r,*}_{t-1})\;+\;\frac{w_s}{2}\sum_{i\in\mathcal{Q}_t}s_i^2$$</div>
+
+  <div class="plain"><b>In plain English:</b> find the robot pose $q$ that simultaneously
+  <br>• preserves interaction ($E_{\text{IM}}$),
+  <br>• keeps human-like finger bends ($E_{\text{bone}}$),
+  <br>• stays smooth &amp; near a sensible base pose ($E_{\text{reg}}$),
+  <br>• and uses as little "cheating" as possible (the slack term $\tfrac{w_s}{2}\sum s_i^2$).
+  The $\lambda$'s are knobs that balance these. Crucially, <b>the same $\lambda$'s work for every object and hand</b> — no per-case tuning.</p></div>
+
+  <h3>The no-penetration constraints (with slack)</h3>
+  <div class="eq">$$\varphi_i(q)\ge -b\qquad\quad \varphi_i(q)+s_i\ge -\tau\qquad\quad 0\le s_i\le b-\tau,\quad i\in\mathcal{Q}_t$$</div>
+  <div class="legend">
+    <span class="chip"><b>$\varphi_i(q)$</b> = signed distance for hand-object pair $i$ (negative = overlapping)</span>
+    <span class="chip"><b>$\tau$</b> = soft tolerance (tiny allowed touch)</span>
+    <span class="chip"><b>$b$</b> = hard bound (never cross this)</span>
+    <span class="chip"><b>$s_i$</b> = slack: how much pair $i$ is allowed to bend the soft rule</span>
+    <span class="chip"><b>$\mathcal{Q}_t$</b> = the hand-object pairs being checked this frame</span>
+  </div>
+  <div class="plain"><b>In plain English:</b> $\varphi_i$ is how far apart a finger and the object are (it goes negative if they overlap). The rules say: <b>never</b> penetrate past the hard limit $b$; try to respect the gentle limit $\tau$; and if a pair must slightly violate $\tau$ to make contact work, it "pays" via slack $s_i$, which the objective minimizes. This is exactly why max penetration drops to ~1 mm instead of 11–20 mm.</p></div>
+
+  <h3>The regularizer, spelled out</h3>
+  <span class="eqtag">$E_{\text{reg}}$ (Appendix A.1)</span>
+  <div class="eq">$$E_{\text{reg}}(q;q^{r,*}_{t-1})=\lambda_{\text{reg}}\lVert q-q^{r,*}_{t-1}\rVert_2^2
+  +\lambda_{base,pos}\lVert q^{base}_{pos}\rVert_2^2
+  +\lambda_{base,rot}\lVert q^{base}_{rot}\rVert_2^2$$</div>
+  <div class="plain"><b>In plain English:</b> three gentle pulls — (1) stay close to last frame (smooth motion), (2) don't drift the wrist position too far, (3) don't twist the wrist orientation too far. Keeps the solution physically reasonable and temporally stable.</p></div>
+
+  <div class="figbox">
+    <canvas id="cvSlack" height="300"></canvas>
+    <div class="ctrls">
+      <button class="btn" id="slackGo">Run penetration fix ▸</button>
+      <button class="btn ghost" id="slackReset">Reset</button>
+    </div>
+    <div class="caption">A robot finger starts sunk <span style="color:var(--bad)">inside</span> the object ($\varphi<0$). The constraint pushes it out until it rests <span style="color:var(--good)">on the surface</span> ($\varphi\!\approx\!0$) — contact preserved, no penetration.</div>
+  </div>
+</div></section>
+
+<!-- ============ RL ============ -->
+<section id="rl"><div class="wrap">
+  <h2><span class="num">7</span> What the robot does with the reference</h2>
+  <p class="lead">The clean reference trajectory feeds a reinforcement-learning controller.</p>
+  <div class="step" style="padding-left:56px"><b>RL tracking controller (PPO).</b> A policy is trained with PPO to <i>track</i> the retargeted trajectory, adding small <b>residual actions</b> to handle physics the reference didn't capture. Because the reference already respects contacts and feasibility, the policy explores far less and learns the skill much more reliably.</div>
+  <div class="why"><b>The payoff chain:</b> better references → less wasted exploration → higher RL success rate → and because contacts are physically valid, the learned skill transfers <b>zero-shot to the real Wuji Hand</b> hardware (Figures 1 &amp; 4: cube reorientation and pen spinning on the physical robot).</div>
+</div></section>
+
+<!-- ============ RESULTS ============ -->
+<section id="results"><div class="wrap">
+  <h2><span class="num">8</span> Does it work? The numbers</h2>
+
+  <h3>Retargeting quality (ContactPose) — lower is better</h3>
+  <table>
+    <tr><th>Metric</th><th>TopoRetarget</th><th>OmniRetarget</th><th>Mink</th><th>DexPilot</th></tr>
+    <tr><td>Contact precision (mm)</td><td class="win">7.71</td><td>14.15</td><td>14.12</td><td>—</td></tr>
+    <tr><td>Contact alignment (°)</td><td class="win">15.67</td><td>30.80</td><td>37.36</td><td>—</td></tr>
+    <tr><td>Max penetration (mm)</td><td class="win">1.07</td><td>—</td><td>20.12</td><td>11.87</td></tr>
+    <tr><td>Solve time (ms/frame)</td><td class="win">4.70</td><td colspan="3">real-time capable</td></tr>
+  </table>
+
+  <h3>Downstream RL success rate — higher is better</h3>
+  <p class="note">This is what ultimately matters: can a policy actually learn the skill from these references?</p>
+  <div class="bars" id="barsRL">
+    <div class="bar"><div class="name">Pen-Spin · <b style="color:var(--acc2)">Topo</b></div><div class="track"><div class="fill ours" data-w="87.5">87.5%</div></div></div>
+    <div class="bar"><div class="name">Pen-Spin · OmniRetarget</div><div class="track"><div class="fill base" data-w="46.9">46.9%</div></div></div>
+    <div class="bar"><div class="name">Pen-Spin · Mink</div><div class="track"><div class="fill base" data-w="21.9">21.9%</div></div></div>
+    <div class="bar"><div class="name">Ho-cap · <b style="color:var(--acc2)">Topo</b></div><div class="track"><div class="fill ours" data-w="84.4">84.4%</div></div></div>
+    <div class="bar"><div class="name">Ho-cap · OmniRetarget</div><div class="track"><div class="fill base" data-w="56.2">56.2%</div></div></div>
+    <div class="bar"><div class="name">Ho-cap · others</div><div class="track"><div class="fill base" data-w="75.0">75.0%</div></div></div>
+  </div>
+
+  <div class="grid3" style="margin-top:22px">
+    <div class="card"><div class="big" style="font-size:26px;color:var(--acc2);font-weight:800">+40.6 pts</div><span class="note">Pen-Spin success vs best baseline — the headline result.</span></div>
+    <div class="card"><div class="big" style="font-size:26px;color:var(--acc2);font-weight:800">0.98 cm</div><span class="note">Object position error on Pen-Spin (vs 1.45 cm OmniRetarget).</span></div>
+    <div class="card"><div class="big" style="font-size:26px;color:var(--acc2);font-weight:800">9.25°</div><span class="note">Object rotation error (vs 14.26° OmniRetarget).</span></div>
+  </div>
+
+  <div class="plain"><b>Bottom line:</b> by preserving the <i>interaction topology</i> rather than raw pose, TopoRetarget produces references that are simultaneously more accurate at contact, essentially penetration-free, fast enough for real-time, and — most importantly — far easier for an RL policy to learn from, all the way to real hardware.</p></div>
+</div></section>
+
+<footer><div class="wrap">
+  Visual explainer of <b>TopoRetarget: Interaction-Preserving Retargeting for Dexterous Manipulation</b> (arXiv:2606.16272v1).<br>
+  All equations quoted from the paper; plain-English annotations and animations added for clarity. Built as a single self-contained HTML file.
+</div></footer>
+
+<script>
+/* ============================================================
+   Small shared helpers
+   ============================================================ */
+function fit(canvas){
+  const dpr = window.devicePixelRatio||1;
+  // capture logical height ONCE — setting canvas.height rewrites the attribute,
+  // so re-reading it would compound by dpr each redraw (the expansion bug).
+  if(canvas._h===undefined) canvas._h = +canvas.getAttribute('height');
+  const h = canvas._h;
+  // pin the CSS display height so the element never stretches with DPR/aspect quirks
+  canvas.style.height = h+'px';
+  const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+  canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr);
+  const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, w, h};
+}
+const COL = {human:'#ffb454', robot:'#7c9cff', obj:'#5be3c0', bad:'#ff6b6b', good:'#5be3c0', line:'#2a3340', mut:'#9aa7b4', ink:'#e6edf3'};
+function lerp(a,b,t){return a+(b-a)*t;}
+
+/* ============================================================
+   FIG 1 — The problem (human / naive / topo)
+   ============================================================ */
+(function(){
+  const cv=document.getElementById('cvProblem');
+  let mode='human';
+  const cap=document.getElementById('probCap');
+  const caps={
+    human:'The <span class="dot d-human"></span><b>human</b> hand grips the <span class="dot d-obj"></span>pen with clean fingertip contacts on the surface.',
+    naive:'<b style="color:#ff6b6b">Naive copy:</b> robot fingers <b>penetrate</b> the pen (red) and one tip <b>drifts off</b> into the air. Train on this → the policy fails.',
+    topo:'<b style="color:#5be3c0">TopoRetarget:</b> contacts sit cleanly on the surface, no penetration — the same <i>interaction</i> as the human, on a different hand.'
+  };
+  function draw(){
+    const {ctx,w,h}=fit(cv);
+    ctx.clearRect(0,0,w,h);
+    const cx=w/2, cy=h/2;
+    // object: a pen (rounded rect) tilted
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(-0.35);
+    ctx.fillStyle='rgba(91,227,192,.16)'; ctx.strokeStyle=COL.obj; ctx.lineWidth=2;
+    roundRect(ctx,-150,-16,300,32,16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=COL.obj; ctx.font='13px sans-serif'; ctx.fillText('object (pen)',-40,-26);
+    ctx.restore();
+
+    // palm anchor
+    const palmX = cx-30, palmY=cy+120;
+    const isHuman = mode==='human';
+    const col = isHuman?COL.human:COL.robot;
+    // four fingers: target contact points along the pen
+    const contacts = [
+      {x:cx-90,y:cy+28}, {x:cx-30,y:cy+8}, {x:cx+30,y:cy-12}, {x:cx+92,y:cy-32}
+    ];
+    // finger config differs per mode
+    contacts.forEach((c,i)=>{
+      let tip={x:c.x,y:c.y};
+      if(mode==='naive'){
+        // penetrate: push tip 18px past surface toward center; one finger drifts
+        if(i===2){ tip={x:c.x+46,y:c.y-44}; } // drift
+        else { tip={x:c.x+8*Math.sin(i), y:c.y+14}; } // sink in
+      }
+      // draw finger as 2-segment limb from palm to a knuckle to tip
+      const kx=lerp(palmX,tip.x,.5)+ (i-1.5)*14;
+      const ky=lerp(palmY,tip.y,.5);
+      ctx.strokeStyle=col; ctx.lineWidth=isHuman?9:11; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(palmX,palmY); ctx.lineTo(kx,ky); ctx.lineTo(tip.x,tip.y); ctx.stroke();
+      // tip / contact dot
+      let bad = (mode==='naive');
+      ctx.fillStyle = bad ? (i===2?COL.mut:COL.bad) : COL.good;
+      ctx.beginPath(); ctx.arc(tip.x,tip.y,7,0,7); ctx.fill();
+      if(mode==='naive' && i!==2){
+        ctx.strokeStyle=COL.bad; ctx.setLineDash([3,3]); ctx.beginPath();
+        ctx.arc(tip.x,tip.y,13,0,7); ctx.stroke(); ctx.setLineDash([]);
+      }
+    });
+    // palm
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(palmX,palmY,22,0,7); ctx.fill();
+    ctx.fillStyle=COL.ink; ctx.font='13px sans-serif';
+    ctx.fillText((isHuman?'human hand':'robot hand'), palmX-30, palmY+40);
+  }
+  function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  document.getElementById('pbHuman').onclick=()=>{mode='human';cap.innerHTML=caps.human;draw();};
+  document.getElementById('pbNaive').onclick=()=>{mode='naive';cap.innerHTML=caps.naive;draw();};
+  document.getElementById('pbTopo').onclick =()=>{mode='topo'; cap.innerHTML=caps.topo; draw();};
+  window.addEventListener('resize',draw); draw();
+})();
+
+/* ============================================================
+   FIG 2 — Interaction mesh construction
+   ============================================================ */
+(function(){
+  const cv=document.getElementById('cvMesh');
+  // define vertices: hand keypoints (left cluster) + object samples (right)
+  let V=[], E=[], anim=0, raf=null;
+  function setup(){
+    const {w,h}=fit(cv);
+    V=[];
+    // hand keypoints: 11 points in a hand-ish fan on the left
+    const hx=w*0.32, hy=h*0.55;
+    for(let f=0; f<4; f++){
+      for(let s=0;s<2;s++){
+        V.push({x:hx-70 + f*34 + s*10, y:hy + 70 - f*8 - s*55, t:'h'});
+      }
+    }
+    V.push({x:hx-10,y:hy+90,t:'h'}); // wrist
+    // object samples: ellipse on the right
+    const ox=w*0.66, oy=h*0.5;
+    for(let k=0;k<8;k++){
+      const a=k/8*Math.PI*2;
+      V.push({x:ox+Math.cos(a)*70, y:oy+Math.sin(a)*48, t:'o'});
+    }
+    // edges: connect nearby points (approx Delaunay feel)
+    E=[];
+    for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){
+      const d=Math.hypot(V[i].x-V[j].x,V[i].y-V[j].y);
+      if(d<95) E.push([i,j,V[i].t!==V[j].t]);
+    }
+  }
+  function draw(){
+    const {ctx,w,h}=fit(cv); ctx.clearRect(0,0,w,h);
+    // object fill hint
+    const ox=w*0.66, oy=h*0.5;
+    ctx.fillStyle='rgba(91,227,192,.08)'; ctx.beginPath(); ctx.ellipse(ox,oy,78,56,0,0,7); ctx.fill();
+    // edges fade in
+    const nE=Math.floor(E.length*Math.min(1,anim*1.4));
+    for(let e=0;e<nE;e++){
+      const [i,j,cross]=E[e];
+      ctx.strokeStyle = cross ? 'rgba(255,180,84,.32)' : 'rgba(124,156,255,.28)';
+      ctx.lineWidth = cross?1.6:1.1;
+      ctx.beginPath(); ctx.moveTo(V[i].x,V[i].y); ctx.lineTo(V[j].x,V[j].y); ctx.stroke();
+    }
+    // vertices pop in
+    V.forEach((v,idx)=>{
+      const appear = Math.min(1, Math.max(0,(anim*1.1) - idx/V.length*0.5)*3);
+      if(appear<=0) return;
+      ctx.fillStyle = v.t==='h'?COL.human:COL.obj;
+      ctx.globalAlpha=appear;
+      ctx.beginPath(); ctx.arc(v.x,v.y, v.t==='h'?5.5:5,0,7); ctx.fill();
+      ctx.globalAlpha=1;
+    });
+    // labels
+    ctx.fillStyle=COL.human; ctx.font='13px sans-serif'; ctx.fillText('hand keypoints  (Pʰ)', w*0.18, h*0.92);
+    ctx.fillStyle=COL.obj; ctx.fillText('object samples  (O)', w*0.6, h*0.92);
+  }
+  function loop(){ anim=Math.min(1,anim+0.018); draw(); if(anim<1) raf=requestAnimationFrame(loop); }
+  document.getElementById('meshBuild').onclick=()=>{cancelAnimationFrame(raf); anim=0; setup(); loop();};
+  document.getElementById('meshReset').onclick=()=>{cancelAnimationFrame(raf); anim=0; setup(); draw();};
+  window.addEventListener('resize',()=>{setup();draw();});
+  setup(); draw();
+})();
+
+/* ============================================================
+   FIG 3 — Laplacian coordinate match (interactive + animated)
+   ============================================================ */
+(function(){
+  const cv=document.getElementById('cvLap');
+  let src=[], rob=[], center=2, drag=false, playing=false, raf=null, tAnim=0;
+  // robot start (offset/scaled) and target (== source local shape)
+  let robStart=[], robTarget=[];
+  function setup(){
+    const {w,h}=fit(cv);
+    const L={cx:w*0.26, cy:h*0.55}, R={cx:w*0.74, cy:h*0.55};
+    // source: a center + 4 neighbours
+    src=[
+      {x:L.cx, y:L.cy-70},          // 0 neighbour (object-ish, top)
+      {x:L.cx-78, y:L.cy+10},       // 1
+      {x:L.cx+78, y:L.cy+6},        // 2 ... we will set center separately
+      {x:L.cx-30, y:L.cy+80},       // 3
+      {x:L.cx+34, y:L.cy+78},       // 4
+      {x:L.cx+6, y:L.cy+4}          // 5 CENTER (orange)
+    ];
+    center=5;
+    // robot: different absolute layout (shifted, slightly scaled/rotated) -> needs optimization
+    const sc=0.85, rot=0.35;
+    robStart=src.map((p,i)=>{
+      const dx=(p.x-L.cx)*sc, dy=(p.y-L.cy)*sc;
+      const rx=dx*Math.cos(rot)-dy*Math.sin(rot);
+      const ry=dx*Math.sin(rot)+dy*Math.cos(rot);
+      // also displace the center extra so its delta is WRONG initially
+      let ex=0,ey=0; if(i===5){ex=42;ey=-30;}
+      return {x:R.cx+rx+ex, y:R.cy+ry+ey};
+    });
+    // target: same neighbours as robStart, but center placed so its Laplacian delta matches source
+    robTarget=robStart.map(p=>({x:p.x,y:p.y}));
+    // compute source delta, then set robot center = neighbourCentroid + delta
+    const sd=lapDelta(src,center);
+    const nc=neighCentroid(robTarget,center);
+    robTarget[center]={x:nc.x+sd.x, y:nc.y+sd.y};
+    rob=robStart.map(p=>({x:p.x,y:p.y}));
+  }
+  // neighbours of center = all others (small fully-connected demo)
+  function neighsOf(arr,i){ return arr.map((_,k)=>k).filter(k=>k!==i); }
+  function neighCentroid(arr,i){
+    const ns=neighsOf(arr,i); let wx=0,wy=0,W=0;
+    ns.forEach(k=>{ const d=Math.hypot(arr[i].x-arr[k].x,arr[i].y-arr[k].y);
+      const w=Math.exp(-0.012*d); wx+=w*arr[k].x; wy+=w*arr[k].y; W+=w;});
+    return {x:wx/W, y:wy/W};
+  }
+  function lapDelta(arr,i){ const c=neighCentroid(arr,i); return {x:arr[i].x-c.x, y:arr[i].y-c.y}; }
+
+  function drawSide(ctx,arr,label,col,labCol){
+    // edges (center to neighbours + ring)
+    const ns=neighsOf(arr,center);
+    ctx.strokeStyle='rgba(154,167,180,.28)'; ctx.lineWidth=1;
+    ns.forEach(k=>{ctx.beginPath();ctx.moveTo(arr[center].x,arr[center].y);ctx.lineTo(arr[k].x,arr[k].y);ctx.stroke();});
+    // weighted centroid
+    const c=neighCentroid(arr,center);
+    ctx.fillStyle=COL.mut; ctx.beginPath(); ctx.arc(c.x,c.y,4,0,7); ctx.fill();
+    ctx.font='11px sans-serif'; ctx.fillStyle=COL.mut; ctx.fillText('weighted neighbour avg', c.x-58, c.y+18);
+    // the Laplacian arrow: from centroid to center
+    arrow(ctx,c.x,c.y,arr[center].x,arr[center].y, '#ff5db5', 3);
+    ctx.fillStyle='#ff5db5'; ctx.font='13px sans-serif'; ctx.fillText('Δ', (c.x+arr[center].x)/2+8,(c.y+arr[center].y)/2);
+    // neighbour dots
+    ns.forEach(k=>{ctx.fillStyle=col; ctx.beginPath(); ctx.arc(arr[k].x,arr[k].y,5,0,7); ctx.fill();});
+    // center dot (orange, draggable on robot side... here center is orange always)
+    ctx.fillStyle=COL.human; ctx.beginPath(); ctx.arc(arr[center].x,arr[center].y,9,0,7); ctx.fill();
+    ctx.fillStyle=labCol; ctx.font='14px sans-serif'; ctx.fillText(label, arr[0].x-30, 30);
+  }
+  function arrow(ctx,x1,y1,x2,y2,col,lw){
+    ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    const a=Math.atan2(y2-y1,x2-x1);
+    ctx.beginPath(); ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-10*Math.cos(a-0.4), y2-10*Math.sin(a-0.4));
+    ctx.lineTo(x2-10*Math.cos(a+0.4), y2-10*Math.sin(a+0.4));
+    ctx.closePath(); ctx.fill();
+  }
+  function draw(){
+    const {ctx,w,h}=fit(cv); ctx.clearRect(0,0,w,h);
+    // divider
+    ctx.strokeStyle=COL.line; ctx.setLineDash([5,6]); ctx.beginPath(); ctx.moveTo(w/2,20); ctx.lineTo(w/2,h-20); ctx.stroke(); ctx.setLineDash([]);
+    drawSide(ctx,src,'SOURCE (human)','#ffb454','#ffb454');
+    drawSide(ctx,rob,'ROBOT (optimizing →)','#7c9cff','#7c9cff');
+    // match indicator
+    const sd=lapDelta(src,center), rd=lapDelta(rob,center);
+    const err=Math.hypot(sd.x-rd.x,sd.y-rd.y);
+    ctx.font='13px sans-serif';
+    ctx.fillStyle = err<6?COL.good:COL.mut;
+    ctx.fillText('Δ mismatch (E_IM): '+err.toFixed(1)+(err<6?'  ✓ matched!':''), w/2-90, h-12);
+  }
+  // dragging the source center
+  function pos(e){const r=cv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return{x:p.clientX-r.left,y:p.clientY-r.top};}
+  cv.addEventListener('pointerdown',e=>{const m=pos(e); if(Math.hypot(m.x-src[center].x,m.y-src[center].y)<16){drag=true;}});
+  window.addEventListener('pointermove',e=>{if(!drag)return; const m=pos(e); src[center]={x:m.x,y:m.y};
+    // recompute robot target so user sees it as a moving goal
+    const sd=lapDelta(src,center); const nc=neighCentroid(robTarget,center);
+    robTarget[center]={x:nc.x+sd.x,y:nc.y+sd.y}; draw();});
+  window.addEventListener('pointerup',()=>drag=false);
+  function play(){
+    playing=true; tAnim=0;
+    // recompute target from current source
+    const sd=lapDelta(src,center); const nc=neighCentroid(rob,center);
+    const tgt={x:nc.x+sd.x,y:nc.y+sd.y};
+    const start={x:rob[center].x,y:rob[center].y};
+    function step(){
+      tAnim=Math.min(1,tAnim+0.03);
+      const e=1-Math.pow(1-tAnim,3);
+      rob[center]={x:lerp(start.x,tgt.x,e), y:lerp(start.y,tgt.y,e)};
+      draw();
+      if(tAnim<1) raf=requestAnimationFrame(step); else playing=false;
+    }
+    cancelAnimationFrame(raf); step();
+  }
+  document.getElementById('lapPlay').onclick=play;
+  document.getElementById('lapReset').onclick=()=>{cancelAnimationFrame(raf);setup();draw();};
+  window.addEventListener('resize',()=>{setup();draw();});
+  setup(); draw();
+})();
+
+/* ============================================================
+   FIG 4 — Penetration / slack fix
+   ============================================================ */
+(function(){
+  const cv=document.getElementById('cvSlack');
+  let t=0, raf=null;
+  function draw(){
+    const {ctx,w,h}=fit(cv); ctx.clearRect(0,0,w,h);
+    const ox=w*0.5, oy=h*0.5, R=70;
+    // object
+    ctx.fillStyle='rgba(91,227,192,.12)'; ctx.strokeStyle=COL.obj; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(ox,oy,R,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=COL.obj; ctx.font='13px sans-serif'; ctx.fillText('object surface', ox-40, oy-R-12);
+    // finger: comes from left, tip penetrates initially then pushed to surface
+    const startDepth=-34;  // negative phi (inside)
+    const endDepth=2;      // ~ on surface
+    const depth=lerp(startDepth,endDepth,t); // signed distance target
+    const tipX=ox-R-depth;  // along the -x axis approaching center
+    const tipY=oy;
+    const baseX=40, baseY=oy+8;
+    const inside = depth<0;
+    ctx.strokeStyle = inside?COL.bad:COL.good; ctx.lineWidth=12; ctx.lineCap='round';
+    const midX=lerp(baseX,tipX,.55), midY=oy+34;
+    ctx.beginPath(); ctx.moveTo(baseX,baseY); ctx.lineTo(midX,midY); ctx.lineTo(tipX,tipY); ctx.stroke();
+    ctx.fillStyle=inside?COL.bad:COL.good; ctx.beginPath(); ctx.arc(tipX,tipY,8,0,7); ctx.fill();
+    // phi readout
+    ctx.font='14px sans-serif'; ctx.fillStyle=inside?COL.bad:COL.good;
+    ctx.fillText('signed distance φ = '+depth.toFixed(0)+'  '+(inside?'(PENETRATING ✗)':'(contact ✓)'), w*0.5-110, h-16);
+    // hard / soft bounds markers
+    ctx.fillStyle=COL.mut; ctx.font='11px sans-serif';
+  }
+  function go(){ t=0; cancelAnimationFrame(raf);
+    (function step(){ t=Math.min(1,t+0.02); draw(); if(t<1) raf=requestAnimationFrame(step);})(); }
+  document.getElementById('slackGo').onclick=go;
+  document.getElementById('slackReset').onclick=()=>{cancelAnimationFrame(raf);t=0;draw();};
+  window.addEventListener('resize',draw); draw();
+})();
+
+/* ============================================================
+   Results bars — animate on scroll
+   ============================================================ */
+(function(){
+  const bars=document.getElementById('barsRL');
+  const obs=new IntersectionObserver((es)=>{
+    es.forEach(e=>{ if(e.isIntersecting){
+      bars.querySelectorAll('.fill').forEach(f=>{f.style.width=f.dataset.w+'%';});
+      obs.disconnect();
+    }});
+  },{threshold:.3});
+  obs.observe(bars);
+})();
+</script>
+</body>
+</html>

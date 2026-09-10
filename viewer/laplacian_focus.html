@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Laplacian Δ → E_IM on the real hands</title>
+<script>window.MathJax={tex:{inlineMath:[['$','$']]},svg:{fontCache:'global'}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--mut:#9aa7b4;--acc:#7c9cff;--acc2:#5be3c0;--human:#ffb454;--robot:#7c9cff;--pink:#ff5db5;--line:#2a3340}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+header{padding:16px 22px 8px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;margin:0 0 3px}
+h1 .g{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+header p{color:var(--mut);margin:3px 0 0;font-size:14px;max-width:1050px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 22px;border-bottom:1px solid var(--line);background:#10151c}
+.bar .lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.bar button{background:#1c2330;color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600}
+.bar button.sel{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0a0e14;border-color:transparent}
+.bar button.go{background:linear-gradient(135deg,var(--acc),#6a86e0);color:#0a0e14;border:0}
+.sep{width:1px;height:24px;background:var(--line)}
+input[type=range]{accent-color:var(--acc2);width:110px}
+.wrap{display:grid;grid-template-columns:1.5fr 320px;height:calc(100vh - 158px);min-height:520px}
+@media(max-width:900px){.wrap{grid-template-columns:1fr;height:auto}}
+#view{position:relative;background:#0a0e14}
+#view canvas{display:block;width:100%;height:100%}
+.tag{position:absolute;font-size:12px;pointer-events:none;text-shadow:0 1px 6px #000;font-weight:700}
+.side{padding:14px 18px;overflow-y:auto;border-left:1px solid var(--line)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin:0 0 11px}
+.card h3{margin:0 0 5px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--acc2)}
+.k{display:flex;justify-content:space-between;font-size:14px;margin:3px 0;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.note{color:var(--mut);font-size:12.5px}
+.big{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+#resc{width:100%;height:110px;background:#0a0e14;border-radius:8px;display:block;margin-top:4px}
+.eq{background:#0a0e14;border:1px solid var(--line);border-radius:8px;padding:1px 10px;margin:6px 0;font-size:13.5px;overflow-x:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Laplacian coordinate <span class="g">Δ → E_IM</span>, on the real hands &amp; object</h1>
+  <p>The <b style="color:var(--human)">human MANO hand</b> (translucent, the target) and the <b style="color:var(--robot)">Wuji robot hand</b> (solid) both grasp the real object. Press play and the robot hand is <b>optimized into the grasp</b>. For one chosen fingertip we draw its <b style="color:var(--human)">human arrow Δˢ</b> and <b style="color:var(--robot)">robot arrow Δʳ</b> (each = the point minus the weighted average of its neighbours). E_IM pulls Δʳ onto Δˢ — watch the <b style="color:var(--pink)">pink residual</b> shrink as the hand settles.</p>
+</header>
+
+<div class="bar">
+  <span class="lbl">scene</span><span id="dataSeg" style="display:flex;gap:6px"></span>
+  <span class="sep"></span>
+  <span class="lbl">fingertip</span><span id="vtxSeg" style="display:flex;gap:6px"></span>
+  <span class="sep"></span>
+  <button class="go" id="replay">↻ Replay optimization</button>
+  <button id="loop">⟲ Loop</button>
+  <span class="lbl">speed</span><input type="range" id="speed" min="1" max="30" value="6">
+  <span class="lbl">arrow ×</span><input type="range" id="ascale" min="1" max="6" value="2">
+  <span id="status" style="margin-left:6px;font-size:13px;color:var(--mut);font-weight:700">–</span>
+</div>
+
+<div class="wrap">
+  <div id="view">
+    <div class="tag" style="left:12px;top:10px;color:var(--mut)">drag to orbit · scroll to zoom</div>
+    <div class="tag" style="left:12px;top:30px;color:var(--robot)">■ robot hand &amp; Δʳ</div>
+    <div class="tag" style="left:12px;top:50px;color:var(--human)">■ human hand &amp; Δˢ (target)</div>
+    <div class="tag" style="left:12px;top:70px;color:var(--pink)">▦ residual Δʳ−Δˢ</div>
+    <div class="tag" style="left:12px;top:90px;color:var(--acc2)">● object anchor points</div>
+  </div>
+  <div class="side">
+    <div class="card">
+      <h3>The arrow</h3>
+      <div class="eq">$\Delta_i = v_i - \sum_j w_{ij} v_j$</div>
+      <div class="note">grey dot = weighted-neighbour average (arrow tail); fingertip = arrow head. Translation-free: it encodes only local shape, so it transfers across different-sized hands.</div>
+    </div>
+    <div class="card">
+      <h3>This fingertip, now</h3>
+      <div class="k"><span><span class="dot" style="background:var(--human)"></span>|Δˢ|</span><b id="vMagH">–</b></div>
+      <div class="k"><span><span class="dot" style="background:var(--robot)"></span>|Δʳ|</span><b id="vMagR">–</b></div>
+      <div class="k"><span><span class="dot" style="background:var(--pink)"></span>residual |Δʳ−Δˢ|</span><b id="vRes">–</b></div>
+      <div class="k"><span>angle(Δʳ,Δˢ)</span><b id="vAng">–</b></div>
+    </div>
+    <div class="card">
+      <h3>Residual over optimization</h3>
+      <canvas id="resc"></canvas>
+      <div class="note" id="iterlab">iter –</div>
+    </div>
+    <div class="card">
+      <h3>Whole-hand metrics</h3>
+      <div class="k"><span>E_IM (all 71 pts)</span><b id="totIM" style="color:var(--acc2)">–</b></div>
+      <div class="k"><span>contact</span><b id="mC">–</b></div>
+      <div class="k"><span>max penetration</span><b id="mP">–</b></div>
+    </div>
+  </div>
+</div>
+
+<script src="data_grab_cylinder.js"></script>
+<script src="data_grab_mug.js"></script>
+<script src="data_grab_sphere.js"></script>
+<script type="importmap">
+{ "imports": { "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const KAPPA=80.0;
+const DATA=[{v:"GRAB_CYLINDER",label:"cylinder"},{v:"GRAB_MUG",label:"mug"},{v:"GRAB_SPHERE",label:"sphere"}].filter(d=>window[d.v]);
+const VTX=[{i:8,label:"index"},{i:4,label:"thumb"},{i:12,label:"middle"},{i:16,label:"ring"},{i:20,label:"pinky"}];
+
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const nrm=a=>Math.hypot(a[0],a[1],a[2]);
+const dst=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+function laplacian(D){
+  const Vs=[...D.human_kpts,...D.obj_pts],Nv=Vs.length,nb=Array.from({length:Nv},()=>new Set());
+  for(const[i,j]of D.edges){nb[i].add(j);nb[j].add(i);}
+  const W=Array.from({length:Nv},()=>({}));
+  for(let i=0;i<Nv;i++){let s=0;const ws={};for(const j of nb[i]){const w=Math.exp(-KAPPA*dst(Vs[i],Vs[j]));ws[j]=w;s+=w;}for(const j in ws)ws[j]/=s;W[i]=ws;}
+  return {Vs,W};
+}
+function delta(V,Wi,i){let c=[0,0,0];for(const j in Wi){const w=Wi[j];c[0]+=w*V[j][0];c[1]+=w*V[j][1];c[2]+=w*V[j][2];}return {d:sub(V[i],c),c};}
+function onTop(o){o.renderOrder=999;o.traverse(c=>{if(c.material){c.material.depthTest=false;c.material.transparent=true;c.material.needsUpdate=true;}});}
+
+// ---- scene ----
+const view=document.getElementById('view');
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));view.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x0a0e14);
+const cam=new THREE.PerspectiveCamera(45,1,0.001,100);cam.up.set(0,0,1);
+const ctrl=new OrbitControls(cam,renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff,0.7));const dl=new THREE.DirectionalLight(0xffffff,0.9);dl.position.set(0.4,-0.5,0.7);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0x88aaff,0.4);dl2.position.set(-0.4,0.3,0.2);scene.add(dl2);
+
+let D,L,vtx=8,run="full",p=0,playing="once",last=0,content=null,resCurve=[];
+function disposeAll(){if(!content)return;for(const o of content.all){o.parent&&o.parent.remove(o);o.geometry&&o.geometry.dispose&&o.geometry.dispose();}}
+function bgeo(verts,faces){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts.flat(),3));g.setIndex(faces.flat());g.computeVertexNormals();return g;}
+
+function load(){
+  L=laplacian(D);
+  disposeAll();
+  content={all:[],linkMeshes:{},arrowR:null,arrowH:null,resid:null,nbr:new THREE.Group(),vtxR:null,vtxH:null,cR:null,cH:null};
+  const reg=o=>{scene.add(o);content.all.push(o);return o;};
+  // object + anchors (kept faint so the arrows read through)
+  reg(new THREE.Mesh(bgeo(D.object.vertices,D.object.faces),new THREE.MeshStandardMaterial({color:0x5be3c0,transparent:true,opacity:0.15,roughness:0.6,side:THREE.DoubleSide,depthWrite:false})));
+  const ag=new THREE.BufferGeometry();ag.setAttribute('position',new THREE.Float32BufferAttribute(D.obj_pts.flat(),3));
+  reg(new THREE.Points(ag,new THREE.PointsMaterial({color:0x3ddc97,size:0.004})));
+  // human MANO mesh (target) — translucent
+  if(D.human_mesh)reg(new THREE.Mesh(bgeo(D.human_mesh.vertices,D.human_mesh.faces),new THREE.MeshStandardMaterial({color:0xffb454,transparent:true,opacity:0.22,roughness:0.5,side:THREE.DoubleSide,depthWrite:false})));
+  // robot link meshes (animated) — translucent so the arrows show through
+  const rmat=new THREE.MeshStandardMaterial({color:0x9fb2d4,roughness:0.45,metalness:0.35,transparent:true,opacity:0.4,depthWrite:false});
+  for(const[name,m]of Object.entries(D.robot_meshes)){const mesh=reg(new THREE.Mesh(bgeo(m.vertices,m.faces),rmat));mesh.matrixAutoUpdate=false;content.linkMeshes[name]=mesh;}
+  // overlays
+  content.nbr=reg(new THREE.Group());
+  content.arrowR=reg(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(),0.05,0x7c9cff,0.012,0.008));
+  content.arrowH=reg(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(),0.05,0xffb454,0.012,0.008));
+  content.resid=reg(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineDashedMaterial({color:0xff5db5,dashSize:0.004,gapSize:0.003})));
+  content.cR=reg(new THREE.Mesh(new THREE.SphereGeometry(0.004,12,12),new THREE.MeshStandardMaterial({color:0x9aa7b4})));
+  content.cH=reg(new THREE.Mesh(new THREE.SphereGeometry(0.0035,12,12),new THREE.MeshStandardMaterial({color:0xffb454})));
+  content.vtxR=reg(new THREE.Mesh(new THREE.SphereGeometry(0.006,14,14),new THREE.MeshStandardMaterial({color:0x7c9cff})));
+  content.vtxH=reg(new THREE.Mesh(new THREE.SphereGeometry(0.005,14,14),new THREE.MeshStandardMaterial({color:0xffb454})));
+  // draw all overlays ON TOP of the (transparent) meshes so they're never occluded
+  for(const o of [content.arrowR,content.arrowH,content.resid,content.cR,content.cH,content.vtxR,content.vtxH]) onTop(o);
+
+  // residual curve over discrete iters
+  const tr=D.runs[run].trace, ds=delta(L.Vs,L.W[vtx],vtx).d;
+  resCurve=tr.map(rec=>nrm(sub(delta([...rec.kpts,...D.obj_pts],L.W[vtx],vtx).d,ds)));
+
+  // camera frame on object
+  let c=[0,0,0];for(const q of D.object.vertices){c[0]+=q[0];c[1]+=q[1];c[2]+=q[2];}const n=D.object.vertices.length;c=c.map(v=>v/n);
+  ctrl.target.set(c[0],c[1],c[2]);cam.position.set(c[0]+0.17,c[1]-0.19,c[2]+0.11);ctrl.update();
+  p=0;playing="once";setStatus();resize();
+}
+
+function lerpKp(pf){const tr=D.runs[run].trace,f0=Math.floor(pf),f1=Math.min(f0+1,tr.length-1),a=pf-f0,A=tr[f0].kpts,B=tr[f1].kpts;return A.map((q,k)=>[q[0]+(B[k][0]-q[0])*a,q[1]+(B[k][1]-q[1])*a,q[2]+(B[k][2]-q[2])*a]);}
+const m4=new THREE.Matrix4();
+function setLinks(pf){const tr=D.runs[run].trace,f0=Math.floor(pf),f1=Math.min(f0+1,tr.length-1),a=pf-f0;
+  for(const[name,mesh]of Object.entries(content.linkMeshes)){const A=tr[f0].link_T[name],B=tr[f1].link_T[name];if(!A)continue;const e=A.map((x,k)=>x+(B[k]-x)*a);m4.set(e[0],e[1],e[2],e[3],e[4],e[5],e[6],e[7],e[8],e[9],e[10],e[11],e[12],e[13],e[14],e[15]);mesh.matrix.copy(m4);}}
+const V3=a=>new THREE.Vector3(a[0],a[1],a[2]);
+function setArrow(arr,tail,head){const dir=new THREE.Vector3().subVectors(head,tail);const len=dir.length()||1e-6;arr.position.copy(tail);arr.setDirection(dir.normalize());arr.setLength(len,Math.min(0.012,len*0.3),Math.min(0.008,len*0.18));}
+
+function frame(pf){
+  const tr=D.runs[run].trace;
+  setLinks(pf);
+  const kp=lerpKp(pf), Vr=[...kp,...D.obj_pts];
+  const {d:dr,c:cr}=delta(Vr,L.W[vtx],vtx);
+  const {d:ds,c:cs}=delta(L.Vs,L.W[vtx],vtx);
+  const S=+document.getElementById('ascale').value;
+  // robot arrow: tail = robot centroid, head = centroid + Δʳ*S
+  const tR=V3(cr), hR=new THREE.Vector3(cr[0]+dr[0]*S,cr[1]+dr[1]*S,cr[2]+dr[2]*S);
+  const tH=V3(cs), hH=new THREE.Vector3(cs[0]+ds[0]*S,cs[1]+ds[1]*S,cs[2]+ds[2]*S);
+  setArrow(content.arrowR,tR,hR);setArrow(content.arrowH,tH,hH);
+  content.cR.position.copy(tR);content.cH.position.copy(tH);
+  content.vtxR.position.copy(hR);content.vtxH.position.copy(hH);
+  content.resid.geometry.setFromPoints([hR,hH]);content.resid.computeLineDistances();
+  // neighbour edges for robot vertex (top-8)
+  content.nbr.clear();
+  const Wi=L.W[vtx],js=Object.keys(Wi).map(Number).sort((a,b)=>Wi[b]-Wi[a]).slice(0,8);
+  for(const j of js){const w=Wi[j];const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(Vr[vtx]),V3(Vr[j])]),new THREE.LineBasicMaterial({color:0x6a86e0,transparent:true,opacity:0.25+0.7*w,depthTest:false}));ln.renderOrder=998;content.nbr.add(ln);}
+  // readouts
+  const mh=nrm(ds)*1000,mr=nrm(dr)*1000,res=nrm(sub(dr,ds))*1000;
+  const cosA=(dr[0]*ds[0]+dr[1]*ds[1]+dr[2]*ds[2])/(nrm(dr)*nrm(ds)+1e-9);
+  document.getElementById('vMagH').textContent=mh.toFixed(1)+' mm';
+  document.getElementById('vMagR').textContent=mr.toFixed(1)+' mm';
+  document.getElementById('vRes').textContent=res.toFixed(1)+' mm';
+  document.getElementById('vAng').textContent=(Math.acos(Math.max(-1,Math.min(1,cosA)))*180/Math.PI).toFixed(0)+'°';
+  const rec=tr[Math.min(Math.round(pf),tr.length-1)];
+  document.getElementById('totIM').textContent=rec.losses.IM.toFixed(1)+' mm²';
+  document.getElementById('mC').textContent=rec.contact_mm.toFixed(1)+' mm';
+  document.getElementById('mP').textContent=rec.max_pen_mm.toFixed(1)+' mm';
+  document.getElementById('iterlab').textContent=`iter ${rec.iter} / ${tr[tr.length-1].iter}`;
+  drawRes(pf);
+}
+const rc=document.getElementById('resc'),rx=rc.getContext('2d');
+function drawRes(pf){const W=rc.width=rc.clientWidth*2,H=rc.height=220;rx.setTransform(1,0,0,1,0,0);rx.clearRect(0,0,W,H);rx.scale(2,2);
+  const w=W/2,h=H/2,pad=8,mx=Math.max(...resCurve)*1000||1;
+  rx.strokeStyle="#ff5db5";rx.lineWidth=2;rx.beginPath();resCurve.forEach((v,i)=>{const X=pad+i/(resCurve.length-1)*(w-2*pad),Y=h-pad-(v*1000/mx)*(h-2*pad);i?rx.lineTo(X,Y):rx.moveTo(X,Y);});rx.stroke();
+  const X=pad+pf/(resCurve.length-1)*(w-2*pad);rx.strokeStyle="#9aa7b4";rx.beginPath();rx.moveTo(X,pad);rx.lineTo(X,h-pad);rx.stroke();
+  rx.fillStyle="#9aa7b4";rx.font="10px sans-serif";rx.fillText("|Δʳ−Δˢ| (mm), "+(resCurve[0]*1000).toFixed(0)+" → "+(resCurve[resCurve.length-1]*1000).toFixed(1),pad,12);}
+function setStatus(){const st=document.getElementById('status');st.textContent=(playing==="once"||playing==="loop")?"optimizing…":"converged ✓";st.style.color=(playing)?"var(--acc2)":"var(--mut)";}
+
+// controls
+const dataSeg=document.getElementById('dataSeg');
+DATA.forEach((d,i)=>{const b=document.createElement('button');b.textContent=d.label;if(i===0)b.classList.add('sel');b.onclick=()=>{[...dataSeg.children].forEach(c=>c.classList.remove('sel'));b.classList.add('sel');D=window[d.v];load();};dataSeg.appendChild(b);});
+const vtxSeg=document.getElementById('vtxSeg');
+VTX.forEach((vd,i)=>{const b=document.createElement('button');b.textContent=vd.label;if(i===0)b.classList.add('sel');b.onclick=()=>{[...vtxSeg.children].forEach(c=>c.classList.remove('sel'));b.classList.add('sel');vtx=vd.i;load();};vtxSeg.appendChild(b);});
+document.getElementById('replay').onclick=()=>{p=0;playing="once";setStatus();};
+document.getElementById('loop').onclick=function(){if(playing==="loop"){playing=false;this.textContent="⟲ Loop";}else{playing="loop";this.textContent="❚❚ Stop";}setStatus();};
+function resize(){const r=view.getBoundingClientRect();renderer.setSize(r.width,r.height);cam.aspect=r.width/Math.max(r.height,1);cam.updateProjectionMatrix();}
+addEventListener('resize',resize);
+
+function loop(t){requestAnimationFrame(loop);
+  const N=D.runs[run].trace.length-1,sp=(+document.getElementById('speed').value)/1000;
+  if(playing==="once"||playing==="loop"){p+=sp*(t-last)/16.7;if(p>=N){if(playing==="once"){p=N;playing=false;setStatus();}else p=0;}}
+  last=t;frame(Math.max(0,Math.min(N,p)));ctrl.update();renderer.render(scene,cam);}
+D=window[DATA[0].v];load();loop(0);
+</script>
+</body>
+</html>
