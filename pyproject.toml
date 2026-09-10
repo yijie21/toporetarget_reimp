@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "toporetarget-reimpl"
+name = "toporetarget-reimp"
 version = "1.0.0"
 description = "Unofficial reimplementation of TopoRetarget (arXiv 2606.16272) on the Wuji Hand"
 readme = "README.md"

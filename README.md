@@ -8,12 +8,12 @@ An unofficial, from-scratch implementation of
 [*TopoRetarget: Interaction-Preserving Retargeting for Dexterous Manipulation*](https://arxiv.org/abs/2606.16272),
 with an interactive 3-D viewer for watching the optimisation actually happen.
 
-[![tests](https://github.com/<OWNER>/toporetarget-reimpl/actions/workflows/ci.yml/badge.svg)](https://github.com/<OWNER>/toporetarget-reimpl/actions/workflows/ci.yml)
+[![tests](https://github.com/yijie21/toporetarget_reimp/actions/workflows/ci.yml/badge.svg)](https://github.com/yijie21/toporetarget_reimp/actions/workflows/ci.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg)](pyproject.toml)
-[![live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://<OWNER>.github.io/toporetarget-reimpl/viewer/)
+[![live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://yijie21.github.io/toporetarget_reimp/viewer/)
 
-### ▶ **[Open the interactive viewer](https://<OWNER>.github.io/toporetarget-reimpl/viewer/)**
+### ▶ **[Open the interactive viewer](https://yijie21.github.io/toporetarget_reimp/viewer/)**
 
 <img src="docs/media/hero.gif" width="880" alt="Human hand on the left, Wuji robot hand on the right, converging onto the same grasp">
 
@@ -49,7 +49,7 @@ Nothing to download: the Wuji right hand (URDF, 26 meshes, MJCF) is vendored, an
 the demo runs on synthetic grasps.
 
 ```bash
-git clone https://github.com/<OWNER>/toporetarget-reimpl && cd toporetarget-reimpl
+git clone https://github.com/yijie21/toporetarget_reimp && cd toporetarget_reimp
 pip install -e ".[dev]"
 pytest -q                                              # 43 tests, CPU only
 
@@ -101,8 +101,8 @@ keypoints lets the finger geometry sink into the object while the score looks
 clean (0.80 mm reported where the link surfaces were 9.00 mm inside).
 
 Two explainers walk through the maths with animations:
-**[the method](https://<OWNER>.github.io/toporetarget-reimpl/toporetarget_explained.html)** ·
-**[Stage 3 in detail](https://<OWNER>.github.io/toporetarget-reimpl/stage3_laplacian_explained.html)**
+**[the method](https://yijie21.github.io/toporetarget_reimp/toporetarget_explained.html)** ·
+**[Stage 3 in detail](https://yijie21.github.io/toporetarget_reimp/stage3_laplacian_explained.html)**
 
 ## Honest scope
 
