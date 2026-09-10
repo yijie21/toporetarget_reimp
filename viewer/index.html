@@ -14,7 +14,11 @@ canvas{display:block}
 #top{top:14px;left:14px;right:14px;display:flex;gap:10px;align-items:center;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden}
 #top h1{font-size:16px;margin:0 6px 0 0}
 #top h1 .g{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.seg{display:flex;gap:6px;flex-wrap:wrap}
+/* never wrap: a second header row would cover the scene once a few payloads
+   are present.  The strip scrolls horizontally instead. */
+.seg{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.seg button{white-space:nowrap;flex:0 0 auto}
 .seg button{background:#1c2330;color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600}
 .seg button.sel{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0a0e14;border-color:transparent}
 .sep{width:1px;height:26px;background:var(--line)}

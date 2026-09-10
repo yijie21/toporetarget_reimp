@@ -17,9 +17,10 @@ with an interactive 3-D viewer for watching the optimisation actually happen.
 
 <img src="docs/media/hero.gif" width="880" alt="Human hand on the left, Wuji robot hand on the right, converging onto the same grasp">
 
-<sub>A real GRAB grasp, retargeted. Left: the human demonstration. Right: the Wuji
-Hand, solved from its initial pose to reproduce the same hand-object
-relationship. In the viewer you drag to orbit — both panes share one camera.</sub>
+<sub>A real GRAB grasp of a wine glass, retargeted. Left: the human
+demonstration. Right: the Wuji Hand, solved from its initial pose until it holds
+the glass the same way — <b>2.50 mm</b> contact precision, <b>1.15 mm</b>
+penetration. In the viewer you drag to orbit; both panes share one camera.</sub>
 
 </div>
 
@@ -37,10 +38,11 @@ geometry* of that graph — who touches what, from which direction, at what
 distance — while staying out of the object.
 
 <div align="center">
-<img src="docs/media/ablation.png" width="880" alt="The same grasp solved with the full method, without the interaction term, and without the penetration term">
-<br><sub>The same grasp, three ways. Drop <code>E_IM</code> and the hand never
-commits to the object; drop <code>E_pen</code> and it grips <em>better</em> —
-by sinking 6 mm into the mug. Every term is switchable in the viewer, live.</sub>
+<img src="docs/media/ablation.png" width="880" alt="The same grasp with the full method and with the interaction term removed">
+<br><sub>The interaction term is what makes the hand commit to the object: drop
+<code>E_IM</code> and contact precision goes from <b>2.50 mm</b> to
+<b>37.79 mm</b> — the fingers splay instead of conforming. Every term is
+switchable in the viewer, live.</sub>
 </div>
 
 ## Try it
@@ -75,7 +77,7 @@ python scripts/export_viewer.py --source contactpose:mug \
 | **Interaction mesh overlay** | the Delaunay edges, colour-coded hand-hand / object-object / **cross** — the cross edges are the ones carrying the interaction |
 
 <div align="center">
-<img src="docs/media/interaction-mesh.png" width="880" alt="The interaction mesh overlaid on both hands, with loss curves and live metrics">
+<img src="docs/media/interaction-mesh.png" width="880" alt="The interaction mesh overlaid on the human and robot hands, with loss curves and live metrics">
 <br><sub>The interaction mesh switched on: the graph whose local relative
 geometry the optimisation is trying to preserve.</sub>
 </div>
@@ -99,6 +101,11 @@ Base orientation uses the continuous 6-D rotation representation. Penetration is
 measured on **sampled link surfaces**, not on keypoints — penalising only
 keypoints lets the finger geometry sink into the object while the score looks
 clean (0.80 mm reported where the link surfaces were 9.00 mm inside).
+
+`E_pen` earns its place on solid objects rather than thin-walled ones: on the
+wine glass above there is nothing to sink into, but on a GRAB mug, removing it
+*improves* contact precision (4.77 mm → 1.82 mm) by pushing the fingers 6.04 mm
+into the object. Switch objects in the viewer to see it.
 
 Two explainers walk through the maths with animations:
 **[the method](https://yijie21.github.io/toporetarget_reimp/toporetarget_explained.html)** ·

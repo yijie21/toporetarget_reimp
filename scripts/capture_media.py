@@ -68,6 +68,9 @@ def main():
     ap.add_argument("--height", type=int, default=810)
     ap.add_argument("--gif-width", type=int, default=900)
     ap.add_argument("--fps", type=int, default=11)
+    ap.add_argument("--ablations", default="full,no_IM",
+                    help="comma list of runs for the comparison figure; pick ones "
+                         "that actually differ on the chosen object")
     ap.add_argument("--hold-frames", type=int, default=9,
                     help="repeats of the converged frame before the loop restarts")
     args = ap.parse_args()
@@ -106,7 +109,8 @@ def main():
         # added nothing the caption does not say.
         page.evaluate("() => { document.getElementById('loss').style.display='none'; }")
         stills, scores = {}, {}
-        for name in ["full", "no_IM", "no_pen"]:
+        wanted = [a.strip() for a in args.ablations.split(",") if a.strip()]
+        for name in wanted:
             # the viewer prints ablation names with spaces, not underscores
             pick(page, "#abl button", name.replace("_", " "))
             set_frame(page, n_frames(page))
@@ -138,8 +142,10 @@ def main():
     # side by side.  Stacking whole screenshots produced a figure three screens
     # tall, which is unreadable inline in a README.
     from PIL import Image, ImageDraw
-    order = [("full", "full method"), ("no_IM", "without E_IM"),
-             ("no_pen", "without E_pen")]
+    captions = {"full": "full method", "no_IM": "without E_IM",
+                "no_pen": "without E_pen", "no_bone": "without E_bone",
+                "no_reg": "without E_reg"}
+    order = [(k, captions.get(k, k)) for k in wanted]
     # Both metrics, because contact precision alone misleads: dropping E_pen
     # *improves* it while the hand sinks into the object.
     order = [(k, cap, "contact %s   ·   penetration %s" % tuple(scores.get(k, ("?", "?"))))
