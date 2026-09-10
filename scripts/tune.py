@@ -107,6 +107,9 @@ def main():
                          "raise only if the machine has the memory")
     ap.add_argument("--split", default=str(CONFIGS / "tuning_split.yaml"))
     ap.add_argument("--out-dir", default="runs")
+    ap.add_argument("--freeze", action="store_true",
+                    help="write the winning parameters into the method's config, "
+                         "so reproducing needs no hand-editing")
     args = ap.parse_args()
 
     split = yaml.safe_load(open(args.split))
@@ -137,7 +140,51 @@ def main():
                    results=results, best=best), open(out, "w"), indent=1)
     print(f"\nbest objective {best['objective']:.3f} with {best['params']}")
     print(f"full sweep -> {out}")
-    print("Write the winning parameters into the method's config to freeze them.")
+    if args.freeze:
+        freeze(args.method, best)
+    else:
+        print("re-run with --freeze to write these into the method's config")
+
+
+def freeze(method, best):
+    """Write the winning parameters into the config the evaluation reads."""
+    import re
+    from datetime import date
+
+    if method == "ours":
+        w = {k: round(float(v), 4) for k, v in best["params"].items()}
+        (CONFIGS / "weights.yaml").write_text(f"""# Loss weights for the TopoRetarget objective.
+#
+# The paper does not publish its weights.  These were FITTED, not hand-picked:
+# scripts/tune.py sampled configurations on configs/tuning_split.yaml (a
+# different ContactPose participant from the benchmark) and minimised
+# mean(E_prec_mm + D_pen_max_mm).  Best objective on that split: {best['objective']:.3f} mm
+# (frozen {date.today().isoformat()}).
+# Reproduce with:  python scripts/tune.py --method ours --budget 40 --seed 0 --freeze
+#
+# One single set is used for every object in the main table, as the paper claims
+# for its own parameters.  Positional terms are in mm^2 so the weights stay O(1).
+# IM is the scale anchor (only ratios matter) and lim enforces a hard constraint,
+# so both were held fixed during the search.
+weights:
+  IM: {w['IM']}          # E_IM   interaction-mesh Laplacian coordinates  (Stage 3)
+  bone: {w['bone']}       # E_bone relative bone-direction                 (Stage 1)
+  reg: {w['reg']}        # E_reg  smoothness / base prior                 (Stage 4)
+  pen: {w['pen']}      # E_pen  penetration hinge on link surfaces      (Stage 4)
+  lim: {w['lim']}      # E_lim  joint-limit barrier
+""")
+        print(f"froze weights into {CONFIGS / 'weights.yaml'}")
+        return
+
+    path = CONFIGS / "baselines" / f"{method}_wuji.yml"
+    key = "scaling_factor" if method == "dexpilot" else "scaling"
+    text = path.read_text()
+    new, n = re.subn(rf"^(\s*){key}: [0-9.eE+-]+",
+                     rf"\g<1>{key}: {best['params']['scaling']:.4f}", text, flags=re.M)
+    if n != 1:
+        raise SystemExit(f"could not find a single `{key}:` line in {path}")
+    path.write_text(new)
+    print(f"froze {key} = {best['params']['scaling']:.4f} into {path}")
 
 
 if __name__ == "__main__":

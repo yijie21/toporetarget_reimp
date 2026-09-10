@@ -31,7 +31,7 @@ MJCF) is vendored under `assets/`, and the demo works on synthetic grasps.
 ```bash
 git clone https://github.com/<you>/toporetarget-reimpl && cd toporetarget-reimpl
 pip install -e ".[dev]"          # add ".[baselines]" for DexPilot and Mink
-pytest -q                        # 39 tests, CPU only, no datasets needed
+pytest -q                        # 43 tests, CPU only (4 skip without datasets)
 
 python scripts/export_viewer.py --source synthetic:cylinder
 open viewer/index.html           # orbit, scrub the optimisation, toggle losses
@@ -126,7 +126,7 @@ toporetarget/        geometry robot interaction optimize data metrics solve
 baselines/           dexpilot.py, mink_ik.py — thin adapters over upstream libraries
 scripts/             make_eval_set  make_tuning_split  tune  eval_contactpose
                      eval_grab_sequence  export_viewer  make_results  reproduce.sh
-tests/               39 tests, CPU only, no dataset required
+tests/               43 tests; 39 need nothing, 4 unlock with the datasets
 viewer/              three.js viewer; robot meshes shared across payloads
 docs/                explainers + the GitHub Pages entry point
 ```

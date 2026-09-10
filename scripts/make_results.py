@@ -98,8 +98,12 @@ def main():
             e_avg = sum(b["E_prec_mm"] for b in base) / len(base)
             d_avg = sum(b["D_pen_max_mean_mm"] for b in base) / len(base)
             L.append("Against the average of the baselines, next to what the paper "
-                     "reports (the paper publishes relative improvements, not "
-                     "absolute millimetres):\n")
+                     "reports. Two caveats on this comparison: the paper publishes "
+                     "relative improvements rather than absolute millimetres, so "
+                     "only relative figures can be set side by side; and its "
+                     "average is over four baselines (OmniRetarget, DexPilot, "
+                     "Mink, GeoRT) while ours is over the two we reproduce, so the "
+                     "denominators differ.\n")
             L.append(table(
                 [["contact precision error",
                   f"{pct(ours['E_prec_mm'], e_avg):+.1f} %",

@@ -1,10 +1,11 @@
 # Loss weights for the TopoRetarget objective.
 #
 # The paper does not publish its weights.  These were FITTED, not hand-picked:
-# scripts/tune.py sampled 40 configurations on configs/tuning_split.yaml (a
+# scripts/tune.py sampled configurations on configs/tuning_split.yaml (a
 # different ContactPose participant from the benchmark) and minimised
-# mean(E_prec_mm + D_pen_max_mm).  Best objective on that split: 8.052 mm.
-# Reproduce with:  python scripts/tune.py --method ours --budget 40 --seed 0
+# mean(E_prec_mm + D_pen_max_mm).  Best objective on that split: 8.052 mm
+# (frozen 2026-09-10).
+# Reproduce with:  python scripts/tune.py --method ours --budget 40 --seed 0 --freeze
 #
 # One single set is used for every object in the main table, as the paper claims
 # for its own parameters.  Positional terms are in mm^2 so the weights stay O(1).

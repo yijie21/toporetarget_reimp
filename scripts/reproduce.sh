@@ -27,10 +27,8 @@ echo "=== 2/4  fit every method's hyper-parameters on the held-out split ==="
 if [ "${SKIP_TUNING:-0}" != "1" ]; then
   for m in ours dexpilot mink; do
     python scripts/tune.py --grasps "$CONTACTPOSE_GRASPS" --models "$CONTACTPOSE_MODELS" \
-      --method "$m" --budget "${BUDGET:-40}" --seed 0 --workers "${WORKERS:-6}"
+      --method "$m" --budget "${BUDGET:-40}" --seed 0 --workers "${WORKERS:-6}" --freeze
   done
-  echo "NOTE: tuning writes runs/tuning_*.json; the winning values are already"
-  echo "      frozen in configs/. Re-freeze them by hand if the search moved."
 fi
 
 echo "=== 3/4  main table: ours vs baselines vs ablations on ContactPose ==="
