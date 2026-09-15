@@ -13,8 +13,6 @@ with an interactive 3-D viewer for watching the optimisation actually happen.
 [![python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg)](pyproject.toml)
 [![live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://yijie21.github.io/toporetarget_reimp/viewer/)
 
-### ▶ **[Open the interactive viewer](https://yijie21.github.io/toporetarget_reimp/viewer/)**
-
 <img src="docs/media/hero.gif" width="880" alt="Human hand on the left, Wuji robot hand on the right, converging onto the same grasp">
 
 <sub>A real GRAB grasp of a wine glass, retargeted. Left: the human
